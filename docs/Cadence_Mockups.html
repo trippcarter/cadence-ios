@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cadence — Visual Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #07080C;
+    --bg-2: #0B0D14;
+    --surface: #14171F;
+    --surface-2: #1A1E29;
+    --surface-3: #21263397;
+    --border: #252A38;
+    --border-soft: #1B1F2B;
+    --text: #E8EAF0;
+    --text-2: #A9AEC1;
+    --text-3: #6E7388;
+    --accent: #7C5CFF;
+    --accent-2: #B794FF;
+    --accent-glow: rgba(124, 92, 255, 0.35);
+    --indigo: #6366F1;
+    --mint: #34D399;
+    --amber: #F59E0B;
+    --rose: #FB7185;
+    --teal: #2DD4BF;
+    --pink: #F472B6;
+    --orange: #FB923C;
+  }
+  * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    background:
+      radial-gradient(1200px 800px at 80% -10%, rgba(124,92,255,0.18), transparent 60%),
+      radial-gradient(900px 600px at -10% 30%, rgba(45,212,191,0.10), transparent 60%),
+      linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 64px 24px 120px;
+    letter-spacing: -0.011em;
+  }
+  .container { max-width: 1380px; margin: 0 auto; }
+  .brand {
+    display: flex; align-items: center; gap: 14px; margin-bottom: 12px;
+  }
+  .brand .logo {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent) 0%, #5B3CFA 100%);
+    box-shadow: 0 8px 24px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.2);
+    display: grid; place-items: center;
+    font-weight: 800; font-size: 22px; color: white;
+    letter-spacing: -0.04em;
+  }
+  .brand h1 {
+    font-size: 28px; font-weight: 700; margin: 0; letter-spacing: -0.02em;
+  }
+  .tagline {
+    color: var(--text-2); font-size: 16px; margin: 0 0 56px 58px;
+    font-weight: 400;
+  }
+  .section-label {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.18em;
+    color: var(--text-3); margin: 56px 0 6px;
+  }
+  .section-label::before {
+    content: ""; width: 24px; height: 1px; background: var(--text-3);
+  }
+  .section-title {
+    font-size: 30px; font-weight: 700; letter-spacing: -0.025em;
+    margin: 0 0 6px;
+  }
+  .section-desc {
+    color: var(--text-2); margin: 0 0 32px; font-size: 15px; max-width: 700px;
+  }
+
+  /* iPhone frame */
+  .phones { display: flex; flex-wrap: wrap; gap: 40px; justify-content: center; }
+  .phone {
+    width: 372px; height: 780px;
+    background: var(--bg);
+    border-radius: 56px;
+    border: 1px solid var(--border);
+    box-shadow:
+      0 60px 120px -40px rgba(0,0,0,0.8),
+      0 30px 60px -20px rgba(124,92,255,0.15),
+      inset 0 0 0 1px rgba(255,255,255,0.04);
+    position: relative;
+    overflow: hidden;
+    padding: 14px;
+  }
+  .phone .screen {
+    width: 100%; height: 100%;
+    border-radius: 44px;
+    background: linear-gradient(180deg, #0A0C12 0%, #07080C 100%);
+    overflow: hidden;
+    position: relative;
+    display: flex; flex-direction: column;
+  }
+  .notch {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    width: 110px; height: 32px; background: #000; border-radius: 999px;
+    z-index: 10;
+  }
+  .status-bar {
+    height: 48px; padding: 16px 28px 0;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 14px; font-weight: 600; color: var(--text);
+    flex-shrink: 0;
+  }
+  .status-icons { display: flex; gap: 6px; align-items: center; }
+  .status-icons svg { width: 16px; height: 11px; }
+
+  /* Phone content */
+  .phone-body {
+    flex: 1; padding: 8px 22px 0;
+    overflow: hidden; display: flex; flex-direction: column;
+  }
+  .greeting-row {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    margin-bottom: 18px;
+  }
+  .date-stack { display: flex; flex-direction: column; gap: 2px; }
+  .date-day { font-size: 13px; font-weight: 500; color: var(--text-3); letter-spacing: 0.06em; text-transform: uppercase; }
+  .date-date { font-size: 30px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
+  .avatar-cluster { display: flex; }
+  .avatar-cluster .av {
+    width: 30px; height: 30px; border-radius: 50%;
+    border: 2px solid var(--bg); margin-left: -8px;
+    background: linear-gradient(135deg, #6366F1, #8B5CF6);
+    font-size: 11px; color: white; display: grid; place-items: center; font-weight: 600;
+  }
+  .avatar-cluster .av:nth-child(2) { background: linear-gradient(135deg, #F59E0B, #FB7185); }
+  .stat-row {
+    display: flex; gap: 10px; margin-bottom: 22px;
+  }
+  .stat {
+    flex: 1; padding: 12px 14px;
+    border-radius: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+  }
+  .stat .label { font-size: 10px; color: var(--text-3); font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
+  .stat .value { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; margin-top: 2px; line-height: 1; display: flex; gap: 6px; align-items: baseline; }
+  .stat .value .suffix { font-size: 11px; font-weight: 500; color: var(--text-3); letter-spacing: 0; text-transform: none; }
+  .stat.accent .value { color: var(--accent-2); }
+  .stat.amber .value { color: var(--amber); }
+
+  .group-label {
+    display: flex; justify-content: space-between; align-items: center;
+    margin: 4px 0 10px;
+  }
+  .group-label .name {
+    font-size: 11px; font-weight: 600; color: var(--text-3);
+    letter-spacing: 0.16em; text-transform: uppercase;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .group-label .name .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); }
+  .group-label .meta { font-size: 11px; color: var(--text-3); }
+
+  /* Tasks */
+  .task-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; flex: 1; overflow: hidden; }
+  .task {
+    display: flex; align-items: center; gap: 12px;
+    padding: 13px 14px;
+    border-radius: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    position: relative;
+  }
+  .task.elevated {
+    background: linear-gradient(180deg, #181C28 0%, #14171F 100%);
+    border-color: var(--border);
+  }
+  .check {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 1.5px solid var(--text-3); flex-shrink: 0;
+    display: grid; place-items: center;
+  }
+  .check.done {
+    background: var(--accent); border-color: var(--accent);
+    box-shadow: 0 0 0 0px rgba(124,92,255,0.4);
+  }
+  .check.done svg { width: 10px; }
+  .check.high { border-color: var(--rose); }
+  .check.med { border-color: var(--amber); }
+  .task .body { flex: 1; min-width: 0; }
+  .task .title {
+    font-size: 14px; font-weight: 500; line-height: 1.3;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .task .meta { font-size: 11px; color: var(--text-3); margin-top: 3px; display: flex; gap: 8px; align-items: center; }
+  .task .meta .chip {
+    padding: 2px 7px; border-radius: 999px;
+    background: rgba(245,158,11,0.12); color: var(--amber);
+    font-weight: 600; font-size: 10px; letter-spacing: 0.02em;
+  }
+  .task .meta .chip.purple { background: rgba(124,92,255,0.14); color: var(--accent-2); }
+  .task .meta .chip.mint { background: rgba(52,211,153,0.12); color: var(--mint); }
+  .task .meta .chip.rose { background: rgba(251,113,133,0.12); color: var(--rose); }
+  .task .meta .chip.pink { background: rgba(244,114,182,0.12); color: var(--pink); }
+  .task.completed .title { color: var(--text-3); text-decoration: line-through; text-decoration-color: var(--text-3); }
+  .task.completed { opacity: 0.7; }
+  .task .time {
+    font-size: 12px; font-weight: 600; color: var(--text-2);
+    font-variant-numeric: tabular-nums;
+  }
+  .task .avatar {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: linear-gradient(135deg, #F59E0B, #FB7185);
+    font-size: 10px; color: white; display: grid; place-items: center; font-weight: 700;
+  }
+
+  /* Event */
+  .event {
+    display: flex; gap: 12px;
+    padding: 13px 14px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(45,212,191,0.10) 0%, rgba(45,212,191,0.03) 100%);
+    border: 1px solid rgba(45,212,191,0.18);
+  }
+  .event .rail {
+    width: 3px; background: var(--teal); border-radius: 999px; flex-shrink: 0;
+  }
+  .event .body { flex: 1; }
+  .event .title { font-size: 14px; font-weight: 600; }
+  .event .meta { font-size: 11px; color: var(--text-3); margin-top: 3px; display: flex; gap: 6px; align-items: center; }
+
+  /* Bottom bar */
+  .tabbar {
+    margin: 0 -22px -8px;
+    padding: 14px 22px 22px;
+    border-top: 1px solid var(--border-soft);
+    background: rgba(10,12,18,0.85);
+    backdrop-filter: blur(20px);
+    display: flex; justify-content: space-around; align-items: center;
+    flex-shrink: 0;
+  }
+  .tab { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-3); font-size: 10px; font-weight: 600; letter-spacing: 0.02em; }
+  .tab.active { color: var(--accent-2); }
+  .tab .ic { width: 22px; height: 22px; }
+  .add-btn {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), #5B3CFA);
+    box-shadow: 0 8px 24px var(--accent-glow);
+    display: grid; place-items: center;
+    margin-top: -22px; color: white;
+    border: 3px solid var(--bg);
+  }
+
+  /* Screen 2: Add task NL */
+  .compose-card {
+    margin: auto; padding: 24px; border-radius: 22px;
+    background: linear-gradient(180deg, #1A1E29 0%, #15181F 100%);
+    border: 1px solid var(--border);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+    width: 100%;
+  }
+  .compose-header { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.16em; font-weight: 600; margin-bottom: 14px; }
+  .nl-input {
+    font-size: 18px; font-weight: 500; color: var(--text); line-height: 1.4;
+    padding: 8px 0 14px; border-bottom: 1px solid var(--border-soft); margin-bottom: 18px;
+  }
+  .nl-input .hl { color: var(--accent-2); font-weight: 600; }
+  .nl-input .hl-amber { color: var(--amber); font-weight: 600; }
+  .nl-input .hl-mint { color: var(--mint); font-weight: 600; }
+  .nl-input .cursor { display: inline-block; width: 2px; height: 18px; background: var(--accent); vertical-align: -3px; margin-left: 1px; }
+  .nl-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 9px 0; font-size: 13px; color: var(--text-2);
+  }
+  .nl-row .lbl { display: flex; align-items: center; gap: 10px; }
+  .nl-row .val { color: var(--text); font-weight: 500; }
+  .nl-row .chip { padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .nl-row .chip.purple { background: rgba(124,92,255,0.14); color: var(--accent-2); }
+  .nl-row .chip.amber { background: rgba(245,158,11,0.14); color: var(--amber); }
+  .nl-row .chip.mint { background: rgba(52,211,153,0.12); color: var(--mint); }
+  .save-btn {
+    margin-top: 18px; padding: 14px; width: 100%;
+    border-radius: 14px; border: none;
+    background: linear-gradient(135deg, var(--accent), #5B3CFA);
+    color: white; font-weight: 600; font-size: 15px; letter-spacing: 0.01em;
+    box-shadow: 0 12px 30px var(--accent-glow);
+  }
+  .siri-hint {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px; margin-top: 16px;
+    border-radius: 12px; background: rgba(124,92,255,0.06);
+    border: 1px solid rgba(124,92,255,0.15);
+    font-size: 12px; color: var(--text-2);
+  }
+  .siri-hint .ic { width: 18px; height: 18px; flex-shrink: 0; color: var(--accent-2); }
+
+  /* Lists screen */
+  .list-row {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px; border-radius: 14px; margin-bottom: 8px;
+    background: var(--surface); border: 1px solid var(--border-soft);
+  }
+  .list-row .icon {
+    width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0;
+  }
+  .list-row .body { flex: 1; min-width: 0; }
+  .list-row .name { font-size: 14px; font-weight: 600; }
+  .list-row .sub { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+  .list-row .count { font-size: 14px; font-weight: 600; color: var(--text-2); }
+  .list-row .shared { display: flex; margin-left: auto; }
+  .list-row .shared .av { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--surface); margin-left: -7px; font-size: 10px; color: white; display: grid; place-items: center; font-weight: 700; }
+
+  /* Week view */
+  .week-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 16px;
+  }
+  .day-cell {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 10px 0 12px; border-radius: 12px;
+    border: 1px solid transparent;
+  }
+  .day-cell.active {
+    background: linear-gradient(180deg, rgba(124,92,255,0.18) 0%, rgba(124,92,255,0.05) 100%);
+    border-color: rgba(124,92,255,0.3);
+  }
+  .day-cell .dow { font-size: 10px; font-weight: 600; color: var(--text-3); letter-spacing: 0.08em; }
+  .day-cell .dnum { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; }
+  .day-cell.active .dnum { color: var(--accent-2); }
+  .day-cell .dots { display: flex; gap: 3px; }
+  .day-cell .d { width: 4px; height: 4px; border-radius: 50%; background: var(--text-3); }
+  .day-cell .d.p { background: var(--accent); }
+  .day-cell .d.a { background: var(--amber); }
+  .day-cell .d.t { background: var(--teal); }
+  .timeline { flex: 1; overflow: hidden; padding: 4px 0; }
+  .hour-row { display: flex; gap: 12px; margin-bottom: 4px; }
+  .hour-row .h { font-size: 10px; color: var(--text-3); width: 40px; padding-top: 4px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .hour-row .lane { flex: 1; min-height: 28px; border-top: 1px solid var(--border-soft); position: relative; }
+  .block {
+    position: absolute; left: 0; right: 6px; top: 4px;
+    padding: 8px 10px; border-radius: 9px;
+    font-size: 12px; font-weight: 600;
+    background: rgba(124,92,255,0.12); border: 1px solid rgba(124,92,255,0.25); color: var(--accent-2);
+  }
+  .block.teal { background: rgba(45,212,191,0.10); border-color: rgba(45,212,191,0.25); color: var(--teal); }
+  .block.amber { background: rgba(245,158,11,0.10); border-color: rgba(245,158,11,0.25); color: var(--amber); }
+  .block .sm { display: block; font-size: 10px; font-weight: 500; color: var(--text-3); margin-top: 2px; }
+
+  /* AI Plan screen */
+  .ai-card {
+    margin: auto;
+    padding: 22px;
+    border-radius: 22px;
+    background:
+      radial-gradient(400px 200px at 70% -20%, rgba(124,92,255,0.25), transparent 70%),
+      linear-gradient(180deg, #1A1E29 0%, #14171F 100%);
+    border: 1px solid var(--border);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+    width: 100%;
+  }
+  .ai-header { display: flex; gap: 12px; align-items: center; margin-bottom: 18px; }
+  .ai-header .star {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), #5B3CFA);
+    display: grid; place-items: center; color: white;
+    box-shadow: 0 8px 24px var(--accent-glow);
+  }
+  .ai-header .t { font-size: 16px; font-weight: 700; }
+  .ai-header .st { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+  .ai-text { font-size: 13.5px; line-height: 1.55; color: var(--text-2); margin-bottom: 18px; }
+  .ai-text strong { color: var(--text); font-weight: 600; }
+  .ai-text .h { color: var(--accent-2); font-weight: 600; }
+  .ai-block {
+    display: flex; gap: 12px; padding: 12px;
+    border-radius: 12px; background: var(--surface);
+    border: 1px solid var(--border-soft);
+    margin-bottom: 8px;
+  }
+  .ai-block .t { font-size: 11px; color: var(--text-3); font-weight: 600; width: 56px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .ai-block .b { flex: 1; font-size: 13px; font-weight: 500; }
+  .ai-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .ai-actions .btn { flex: 1; padding: 11px; border-radius: 11px; font-size: 13px; font-weight: 600; text-align: center; }
+  .ai-actions .btn.accept { background: linear-gradient(135deg, var(--accent), #5B3CFA); color: white; }
+  .ai-actions .btn.edit { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
+
+  /* Widget grid */
+  .widget-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 28px; margin-top: 16px;
+  }
+  .widget-card {
+    background: linear-gradient(135deg, #1B1F2B 0%, #11141C 100%);
+    border-radius: 28px;
+    padding: 32px;
+    border: 1px solid var(--border);
+    box-shadow: 0 30px 60px rgba(0,0,0,0.4);
+  }
+  .widget-card h3 { margin: 0 0 4px; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+  .widget-card .sub { font-size: 12px; color: var(--text-3); margin-bottom: 22px; }
+  .ws { display: flex; gap: 18px; align-items: flex-start; }
+  .widget {
+    background: linear-gradient(180deg, #161922 0%, #0F1218 100%);
+    border-radius: 22px;
+    padding: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.04);
+    color: var(--text);
+    font-size: 13px;
+  }
+  .widget.small { width: 158px; height: 158px; display: flex; flex-direction: column; justify-content: space-between; }
+  .widget.med { width: 340px; height: 158px; }
+  .widget.large { width: 340px; height: 340px; }
+  .widget .w-head { display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: var(--text-3); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; }
+  .widget .w-num { font-size: 42px; font-weight: 700; line-height: 1; letter-spacing: -0.04em; color: var(--accent-2); }
+  .widget .w-sub { font-size: 11px; color: var(--text-3); margin-top: 4px; }
+  .widget .w-next { font-size: 12px; color: var(--text-2); margin-top: 12px; line-height: 1.35; }
+  .widget .w-task {
+    display: flex; align-items: center; gap: 9px;
+    padding: 7px 0; font-size: 13px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .widget .w-task:last-child { border: none; }
+  .widget .w-task .dot { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--text-3); flex-shrink: 0; }
+  .widget .w-task .dot.done { background: var(--accent); border-color: var(--accent); }
+  .widget .w-task .ti { flex: 1; }
+  .widget .w-task .tm { font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+  .widget .w-task.done .ti { color: var(--text-3); text-decoration: line-through; }
+
+  /* Lock screen mock */
+  .lockscreen {
+    width: 320px; height: 568px;
+    background:
+      radial-gradient(600px 400px at 50% 100%, rgba(124,92,255,0.3), transparent 70%),
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 320 568' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23131722'/%3E%3Cstop offset='1' stop-color='%2308090E'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='320' height='568' fill='url(%23g)'/%3E%3C/svg%3E");
+    border-radius: 36px;
+    border: 1px solid var(--border);
+    padding: 56px 24px 36px;
+    display: flex; flex-direction: column; align-items: center;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+  }
+  .ls-time { font-size: 78px; font-weight: 200; letter-spacing: -0.04em; line-height: 1; color: white; }
+  .ls-date { font-size: 14px; color: rgba(255,255,255,0.6); font-weight: 500; margin-top: 4px; }
+  .ls-widgets { display: flex; gap: 8px; margin-top: 18px; }
+  .ls-circle {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: rgba(255,255,255,0.06); backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.08);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: white;
+  }
+  .ls-circle .n { font-size: 22px; font-weight: 700; line-height: 1; color: var(--accent-2); }
+  .ls-circle .l { font-size: 8px; color: rgba(255,255,255,0.5); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 2px; }
+  .ls-rect {
+    width: 168px; height: 56px; border-radius: 14px;
+    background: rgba(255,255,255,0.06); backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.08);
+    padding: 8px 12px;
+    color: white;
+  }
+  .ls-rect .h { font-size: 9px; color: rgba(255,255,255,0.55); letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600; }
+  .ls-rect .ti { font-size: 12px; font-weight: 600; line-height: 1.2; margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .ls-inline {
+    margin-top: 14px; font-size: 12px; color: rgba(255,255,255,0.85);
+    background: rgba(255,255,255,0.06); backdrop-filter: blur(10px);
+    padding: 6px 12px; border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  /* Mac mock */
+  .mac-shell {
+    width: 100%; max-width: 1100px; margin: 0 auto;
+    border-radius: 14px; overflow: hidden;
+    border: 1px solid var(--border);
+    box-shadow: 0 60px 120px -30px rgba(0,0,0,0.6);
+    background: var(--bg);
+  }
+  .mac-titlebar {
+    background: linear-gradient(180deg, #1F2330 0%, #181B25 100%);
+    padding: 12px 16px; display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .mac-titlebar .dot { width: 12px; height: 12px; border-radius: 50%; background: #FF5F57; }
+  .mac-titlebar .dot:nth-child(2) { background: #FEBC2E; }
+  .mac-titlebar .dot:nth-child(3) { background: #28C840; }
+  .mac-titlebar .t { margin-left: 16px; font-size: 12px; color: var(--text-3); font-weight: 500; }
+  .mac-body { display: grid; grid-template-columns: 240px 1fr; min-height: 580px; }
+  .mac-side {
+    background: #0E101A;
+    border-right: 1px solid var(--border-soft);
+    padding: 20px 14px;
+  }
+  .mac-side .section { font-size: 10px; font-weight: 600; color: var(--text-3); letter-spacing: 0.14em; text-transform: uppercase; padding: 10px 8px 6px; }
+  .mac-side .li { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; font-size: 13px; color: var(--text-2); margin-bottom: 2px; }
+  .mac-side .li .ic { width: 6px; height: 6px; border-radius: 50%; }
+  .mac-side .li.active { background: rgba(124,92,255,0.12); color: var(--text); }
+  .mac-side .li .count { margin-left: auto; font-size: 11px; color: var(--text-3); }
+  .mac-main { padding: 28px 32px; }
+  .mac-title { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 4px; }
+  .mac-sub { font-size: 13px; color: var(--text-3); margin: 0 0 22px; }
+  .mac-section { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.14em; font-weight: 600; margin: 18px 0 8px; }
+
+  /* Palette */
+  .swatch-row { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 4px; }
+  .swatch {
+    display: flex; flex-direction: column;
+    min-width: 110px;
+  }
+  .swatch .chip {
+    width: 110px; height: 64px; border-radius: 12px;
+    border: 1px solid var(--border-soft);
+    margin-bottom: 8px;
+  }
+  .swatch .name { font-size: 12px; font-weight: 600; }
+  .swatch .hex { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-3); margin-top: 2px; }
+
+  /* Footer */
+  .footer-note {
+    margin-top: 80px;
+    padding: 24px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(124,92,255,0.08), rgba(45,212,191,0.04));
+    border: 1px solid rgba(124,92,255,0.15);
+    color: var(--text-2);
+    font-size: 13px;
+    line-height: 1.6;
+    max-width: 880px; margin-left: auto; margin-right: auto;
+  }
+  .footer-note strong { color: var(--text); }
+
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="brand">
+    <div class="logo">C</div>
+    <h1>Cadence</h1>
+  </div>
+  <p class="tagline">Daily tasks. Real life. One calm surface. &nbsp;·&nbsp; Visual design preview — v1</p>
+
+  <!-- ==================== HERO: 3 phones ==================== -->
+  <div class="section-label">Hero screens</div>
+  <h2 class="section-title">The everyday surface</h2>
+  <p class="section-desc">Three primary states of the iPhone app: <strong style="color:var(--text)">Today</strong> (the home you open every morning), <strong style="color:var(--text)">Add task</strong> (natural-language capture that parses dates, times, and lists automatically), and <strong style="color:var(--text)">Plan my day</strong> (the v2 Claude action that builds a time-blocked plan from your tasks and calendar).</p>
+
+  <div class="phones">
+
+    <!-- PHONE 1: TODAY VIEW -->
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="status-bar">
+          <span>9:41</span>
+          <span class="status-icons">
+            <svg viewBox="0 0 18 11" fill="currentColor"><circle cx="2" cy="9" r="1.2"/><circle cx="6" cy="7" r="1.2"/><circle cx="10" cy="5" r="1.2"/><circle cx="14" cy="3" r="1.2"/></svg>
+            <svg viewBox="0 0 18 11" fill="currentColor"><path d="M9 2c2.5 0 4.5.8 6.2 2.2l-1 1.2C12.6 4.2 11 3.5 9 3.5S5.4 4.2 3.8 5.4l-1-1.2C4.5 2.8 6.5 2 9 2zm0 3c1.8 0 3.4.5 4.6 1.5l-1 1.2C11.6 6.9 10.4 6.5 9 6.5s-2.6.4-3.6 1.2l-1-1.2C5.6 5.5 7.2 5 9 5z"/></svg>
+            <svg viewBox="0 0 26 12" fill="none"><rect x="0.5" y="0.5" width="22" height="11" rx="3" stroke="currentColor"/><rect x="2" y="2" width="16" height="8" rx="1.5" fill="currentColor"/><rect x="23" y="4" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+          </span>
+        </div>
+        <div class="phone-body">
+          <div class="greeting-row">
+            <div class="date-stack">
+              <span class="date-day">Wednesday</span>
+              <span class="date-date">May 13</span>
+            </div>
+            <div class="avatar-cluster">
+              <div class="av">T</div>
+              <div class="av">M</div>
+            </div>
+          </div>
+
+          <div class="stat-row">
+            <div class="stat accent">
+              <div class="label">Today</div>
+              <div class="value">6 <span class="suffix">tasks</span></div>
+            </div>
+            <div class="stat">
+              <div class="label">Events</div>
+              <div class="value">3 <span class="suffix">meetings</span></div>
+            </div>
+            <div class="stat amber">
+              <div class="label">Carried</div>
+              <div class="value">2 <span class="suffix">over</span></div>
+            </div>
+          </div>
+
+          <div class="group-label">
+            <span class="name"><span class="dot"></span>Carried over</span>
+            <span class="meta">2 tasks</span>
+          </div>
+
+          <div class="task-list">
+            <div class="task elevated">
+              <div class="check med"></div>
+              <div class="body">
+                <div class="title">Reply to insurance broker</div>
+                <div class="meta"><span class="chip">was Mon</span><span class="chip purple">Personal</span></div>
+              </div>
+            </div>
+            <div class="task elevated">
+              <div class="check"></div>
+              <div class="body">
+                <div class="title">Review Q2 numbers with co-owner</div>
+                <div class="meta"><span class="chip">was Tue</span><span class="chip pink">Joint Business</span></div>
+              </div>
+              <div class="avatar">M</div>
+            </div>
+
+            <div class="group-label" style="margin-top:14px;">
+              <span class="name"><span class="dot" style="background:var(--teal)"></span>Today</span>
+              <span class="meta">timeline</span>
+            </div>
+
+            <div class="event">
+              <div class="rail"></div>
+              <div class="body">
+                <div class="title">Sam Quarterly Sync</div>
+                <div class="meta">10:00 – 10:45 AM · Google Meet</div>
+              </div>
+            </div>
+            <div class="task">
+              <div class="check"></div>
+              <div class="body">
+                <div class="title">Send proposal to acme.co</div>
+                <div class="meta"><span class="time">2:30 PM</span><span class="chip pink">Joint Business</span></div>
+              </div>
+            </div>
+            <div class="task completed">
+              <div class="check done">
+                <svg viewBox="0 0 12 10" fill="none"><path d="M1 5l3 3 7-7" stroke="white" stroke-width="2"/></svg>
+              </div>
+              <div class="body">
+                <div class="title">Morning brief skim</div>
+                <div class="meta"><span class="time">8:00 AM</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tabbar">
+            <div class="tab active">
+              <svg class="ic" viewBox="0 0 24 24" fill="currentColor"><path d="M3 11l9-8 9 8v10a2 2 0 01-2 2h-4v-7h-6v7H5a2 2 0 01-2-2V11z"/></svg>
+              <span>Today</span>
+            </div>
+            <div class="tab">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>
+              <span>Week</span>
+            </div>
+            <div class="add-btn">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            </div>
+            <div class="tab">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18M3 12h18M3 17h12"/></svg>
+              <span>Lists</span>
+            </div>
+            <div class="tab">
+              <svg class="ic" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+              <span>You</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHONE 2: ADD TASK NL -->
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="status-bar">
+          <span>9:41</span>
+          <span class="status-icons">
+            <svg viewBox="0 0 18 11" fill="currentColor"><circle cx="2" cy="9" r="1.2"/><circle cx="6" cy="7" r="1.2"/><circle cx="10" cy="5" r="1.2"/><circle cx="14" cy="3" r="1.2"/></svg>
+            <svg viewBox="0 0 18 11" fill="currentColor"><path d="M9 2c2.5 0 4.5.8 6.2 2.2l-1 1.2C12.6 4.2 11 3.5 9 3.5S5.4 4.2 3.8 5.4l-1-1.2C4.5 2.8 6.5 2 9 2z"/></svg>
+            <svg viewBox="0 0 26 12" fill="none"><rect x="0.5" y="0.5" width="22" height="11" rx="3" stroke="currentColor"/><rect x="2" y="2" width="16" height="8" rx="1.5" fill="currentColor"/><rect x="23" y="4" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+          </span>
+        </div>
+        <div class="phone-body" style="justify-content: center;">
+          <div class="compose-card">
+            <div class="compose-header">New task</div>
+            <div class="nl-input">Email Sam <span class="hl-amber">tomorrow at 3pm</span> about Q3 forecast <span class="hl">#joint-business</span> <span class="hl-mint">!high</span><span class="cursor"></span></div>
+            <div class="nl-row">
+              <div class="lbl">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>
+                Due
+              </div>
+              <div><span class="chip amber">Thu, May 14 · 3:00 PM</span></div>
+            </div>
+            <div class="nl-row">
+              <div class="lbl">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18M3 12h18M3 17h12"/></svg>
+                List
+              </div>
+              <div><span class="chip purple">Joint Business</span></div>
+            </div>
+            <div class="nl-row">
+              <div class="lbl">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L4 6v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V6l-8-4z"/></svg>
+                Priority
+              </div>
+              <div><span class="chip mint">High</span></div>
+            </div>
+            <div class="nl-row">
+              <div class="lbl">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+                Reminders
+              </div>
+              <div class="val">At due time</div>
+            </div>
+            <button class="save-btn">Add to Joint Business</button>
+            <div class="siri-hint">
+              <svg class="ic" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10" opacity="0.15"/><circle cx="12" cy="12" r="3"/></svg>
+              <span>Or say "Hey Siri, add to Cadence: …"</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHONE 3: AI Plan -->
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="status-bar">
+          <span>9:41</span>
+          <span class="status-icons">
+            <svg viewBox="0 0 18 11" fill="currentColor"><circle cx="2" cy="9" r="1.2"/><circle cx="6" cy="7" r="1.2"/><circle cx="10" cy="5" r="1.2"/><circle cx="14" cy="3" r="1.2"/></svg>
+            <svg viewBox="0 0 18 11" fill="currentColor"><path d="M9 2c2.5 0 4.5.8 6.2 2.2l-1 1.2C12.6 4.2 11 3.5 9 3.5S5.4 4.2 3.8 5.4l-1-1.2C4.5 2.8 6.5 2 9 2z"/></svg>
+            <svg viewBox="0 0 26 12" fill="none"><rect x="0.5" y="0.5" width="22" height="11" rx="3" stroke="currentColor"/><rect x="2" y="2" width="16" height="8" rx="1.5" fill="currentColor"/><rect x="23" y="4" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+          </span>
+        </div>
+        <div class="phone-body" style="justify-content: center;">
+          <div class="ai-card">
+            <div class="ai-header">
+              <div class="star">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 6.9L21 11l-6.6 2.1L12 20l-2.4-6.9L3 11l6.6-2.1z"/></svg>
+              </div>
+              <div>
+                <div class="t">Plan my day</div>
+                <div class="st">Generated by Claude · just now</div>
+              </div>
+            </div>
+            <div class="ai-text">You have <strong>6 tasks</strong> and <strong>3 meetings</strong> today. Your morning is free until 10 AM — that's your best deep-work window. I'd save the <span class="h">Q3 forecast email</span> for after your sync with Sam so you can include his input.</div>
+            <div class="ai-block"><div class="t">8:30 AM</div><div class="b">Review Q2 numbers (carried)</div></div>
+            <div class="ai-block"><div class="t">10:00 AM</div><div class="b">Sam Quarterly Sync</div></div>
+            <div class="ai-block"><div class="t">11:15 AM</div><div class="b">Email Sam: Q3 forecast</div></div>
+            <div class="ai-block"><div class="t">2:30 PM</div><div class="b">Send acme.co proposal</div></div>
+            <div class="ai-actions">
+              <div class="btn edit">Edit</div>
+              <div class="btn accept">Apply plan</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ==================== SECONDARY SCREENS ==================== -->
+  <div class="section-label">Secondary screens</div>
+  <h2 class="section-title">Lists, weeks, and detail</h2>
+  <p class="section-desc">Lists are <strong style="color:var(--text)">contexts</strong>, not folders — each gets a color and icon, and any list can be shared per-collaborator. The week view shows tasks and events together as a real timeline, not a wall of colored bars.</p>
+
+  <div class="phones">
+
+    <!-- PHONE 4: Lists -->
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="status-bar">
+          <span>9:41</span>
+          <span class="status-icons">
+            <svg viewBox="0 0 18 11" fill="currentColor"><circle cx="2" cy="9" r="1.2"/><circle cx="6" cy="7" r="1.2"/><circle cx="10" cy="5" r="1.2"/><circle cx="14" cy="3" r="1.2"/></svg>
+            <svg viewBox="0 0 18 11" fill="currentColor"><path d="M9 2c2.5 0 4.5.8 6.2 2.2l-1 1.2C12.6 4.2 11 3.5 9 3.5S5.4 4.2 3.8 5.4l-1-1.2C4.5 2.8 6.5 2 9 2z"/></svg>
+            <svg viewBox="0 0 26 12" fill="none"><rect x="0.5" y="0.5" width="22" height="11" rx="3" stroke="currentColor"/><rect x="2" y="2" width="16" height="8" rx="1.5" fill="currentColor"/><rect x="23" y="4" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+          </span>
+        </div>
+        <div class="phone-body">
+          <div class="greeting-row" style="margin-bottom:8px;">
+            <div class="date-stack">
+              <span class="date-day">Your lists</span>
+              <span class="date-date">All</span>
+            </div>
+          </div>
+          <p style="color:var(--text-3); font-size:13px; margin: 0 0 22px;">12 active · 41 tasks</p>
+
+          <div class="group-label"><span class="name">Pinned</span></div>
+          <div class="list-row">
+            <div class="icon" style="background:rgba(124,92,255,0.15); color:var(--accent-2);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8v10a2 2 0 01-2 2h-4v-7h-6v7H5a2 2 0 01-2-2V11z"/></svg>
+            </div>
+            <div class="body">
+              <div class="name">Personal</div>
+              <div class="sub">Private</div>
+            </div>
+            <div class="count">8</div>
+          </div>
+          <div class="list-row">
+            <div class="icon" style="background:rgba(244,114,182,0.15); color:var(--pink);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7zm5-4h8v4H8V3z"/></svg>
+            </div>
+            <div class="body">
+              <div class="name">Joint Business</div>
+              <div class="sub">Shared · 2 members</div>
+            </div>
+            <div class="shared">
+              <div class="av" style="background:linear-gradient(135deg,#6366F1,#8B5CF6);">T</div>
+              <div class="av" style="background:linear-gradient(135deg,#F59E0B,#FB7185);">M</div>
+            </div>
+            <div class="count" style="margin-left:8px;">14</div>
+          </div>
+          <div class="list-row">
+            <div class="icon" style="background:rgba(45,212,191,0.15); color:var(--teal);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+            </div>
+            <div class="body">
+              <div class="name">Business · Private</div>
+              <div class="sub">Just you</div>
+            </div>
+            <div class="count">6</div>
+          </div>
+          <div class="list-row">
+            <div class="icon" style="background:rgba(251,146,60,0.15); color:var(--orange);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L4 6v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V6l-8-4z"/></svg>
+            </div>
+            <div class="body">
+              <div class="name">Home projects</div>
+              <div class="sub">Private</div>
+            </div>
+            <div class="count">5</div>
+          </div>
+
+          <div class="group-label" style="margin-top:10px;"><span class="name">Smart lists</span></div>
+          <div class="list-row">
+            <div class="icon" style="background:rgba(245,158,11,0.15); color:var(--amber);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+            </div>
+            <div class="body">
+              <div class="name">No due date</div>
+              <div class="sub">Filter</div>
+            </div>
+            <div class="count">8</div>
+          </div>
+          <div class="list-row">
+            <div class="icon" style="background:rgba(251,113,133,0.15); color:var(--rose);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s-8-4.5-8-12a8 8 0 0116 0c0 7.5-8 12-8 12z"/></svg>
+            </div>
+            <div class="body">
+              <div class="name">Overdue</div>
+              <div class="sub">Filter</div>
+            </div>
+            <div class="count">2</div>
+          </div>
+
+          <div class="tabbar">
+            <div class="tab">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8v10a2 2 0 01-2 2h-4v-7h-6v7H5a2 2 0 01-2-2V11z"/></svg>
+              <span>Today</span>
+            </div>
+            <div class="tab">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>
+              <span>Week</span>
+            </div>
+            <div class="add-btn">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            </div>
+            <div class="tab active">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18M3 12h18M3 17h12"/></svg>
+              <span>Lists</span>
+            </div>
+            <div class="tab">
+              <svg class="ic" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+              <span>You</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHONE 5: Week view -->
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="status-bar">
+          <span>9:41</span>
+          <span class="status-icons">
+            <svg viewBox="0 0 18 11" fill="currentColor"><circle cx="2" cy="9" r="1.2"/><circle cx="6" cy="7" r="1.2"/><circle cx="10" cy="5" r="1.2"/><circle cx="14" cy="3" r="1.2"/></svg>
+            <svg viewBox="0 0 18 11" fill="currentColor"><path d="M9 2c2.5 0 4.5.8 6.2 2.2l-1 1.2C12.6 4.2 11 3.5 9 3.5S5.4 4.2 3.8 5.4l-1-1.2C4.5 2.8 6.5 2 9 2z"/></svg>
+            <svg viewBox="0 0 26 12" fill="none"><rect x="0.5" y="0.5" width="22" height="11" rx="3" stroke="currentColor"/><rect x="2" y="2" width="16" height="8" rx="1.5" fill="currentColor"/><rect x="23" y="4" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+          </span>
+        </div>
+        <div class="phone-body">
+          <div class="greeting-row" style="margin-bottom:14px;">
+            <div class="date-stack">
+              <span class="date-day">This week</span>
+              <span class="date-date">May 11 – 17</span>
+            </div>
+          </div>
+
+          <div class="week-grid">
+            <div class="day-cell"><span class="dow">M</span><span class="dnum">11</span><span class="dots"><span class="d p"></span></span></div>
+            <div class="day-cell"><span class="dow">T</span><span class="dnum">12</span><span class="dots"><span class="d p"></span><span class="d t"></span></span></div>
+            <div class="day-cell active"><span class="dow">W</span><span class="dnum">13</span><span class="dots"><span class="d p"></span><span class="d a"></span><span class="d t"></span></span></div>
+            <div class="day-cell"><span class="dow">T</span><span class="dnum">14</span><span class="dots"><span class="d p"></span><span class="d p"></span></span></div>
+            <div class="day-cell"><span class="dow">F</span><span class="dnum">15</span><span class="dots"><span class="d t"></span></span></div>
+            <div class="day-cell"><span class="dow">S</span><span class="dnum">16</span></div>
+            <div class="day-cell"><span class="dow">S</span><span class="dnum">17</span></div>
+          </div>
+
+          <div class="group-label"><span class="name">Wednesday timeline</span></div>
+
+          <div class="timeline">
+            <div class="hour-row"><div class="h">8 AM</div><div class="lane"></div></div>
+            <div class="hour-row"><div class="h">9 AM</div><div class="lane"><div class="block amber" style="height:38px;">Review Q2 numbers<span class="sm">Carried over</span></div></div></div>
+            <div class="hour-row" style="margin-top:38px;"><div class="h">10 AM</div><div class="lane"><div class="block teal" style="height:48px;">Sam Quarterly Sync<span class="sm">10:00 – 10:45 · Meet</span></div></div></div>
+            <div class="hour-row" style="margin-top:48px;"><div class="h">11 AM</div><div class="lane"></div></div>
+            <div class="hour-row"><div class="h">12 PM</div><div class="lane"><div class="block teal" style="height:34px;">Lunch · Aria<span class="sm">12:15 – 1:15</span></div></div></div>
+            <div class="hour-row" style="margin-top:34px;"><div class="h">1 PM</div><div class="lane"></div></div>
+            <div class="hour-row"><div class="h">2 PM</div><div class="lane"><div class="block" style="height:30px;">acme.co proposal<span class="sm">2:30 PM · Joint Business</span></div></div></div>
+            <div class="hour-row" style="margin-top:30px;"><div class="h">3 PM</div><div class="lane"></div></div>
+          </div>
+
+          <div class="tabbar">
+            <div class="tab">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8v10a2 2 0 01-2 2h-4v-7h-6v7H5a2 2 0 01-2-2V11z"/></svg>
+              <span>Today</span>
+            </div>
+            <div class="tab active">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>
+              <span>Week</span>
+            </div>
+            <div class="add-btn">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            </div>
+            <div class="tab">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18M3 12h18M3 17h12"/></svg>
+              <span>Lists</span>
+            </div>
+            <div class="tab">
+              <svg class="ic" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+              <span>You</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHONE 6: Task detail -->
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="status-bar">
+          <span>9:41</span>
+          <span class="status-icons">
+            <svg viewBox="0 0 18 11" fill="currentColor"><circle cx="2" cy="9" r="1.2"/><circle cx="6" cy="7" r="1.2"/><circle cx="10" cy="5" r="1.2"/><circle cx="14" cy="3" r="1.2"/></svg>
+            <svg viewBox="0 0 18 11" fill="currentColor"><path d="M9 2c2.5 0 4.5.8 6.2 2.2l-1 1.2C12.6 4.2 11 3.5 9 3.5S5.4 4.2 3.8 5.4l-1-1.2C4.5 2.8 6.5 2 9 2z"/></svg>
+            <svg viewBox="0 0 26 12" fill="none"><rect x="0.5" y="0.5" width="22" height="11" rx="3" stroke="currentColor"/><rect x="2" y="2" width="16" height="8" rx="1.5" fill="currentColor"/><rect x="23" y="4" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+          </span>
+        </div>
+        <div class="phone-body">
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0 14px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l-6 6 6 6"/></svg>
+            <span style="font-size:12px; color:var(--text-3); font-weight:600; letter-spacing:0.08em; text-transform:uppercase;">Task</span>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+          </div>
+
+          <div style="display:flex; gap:12px; align-items:flex-start; margin-bottom:18px;">
+            <div class="check med" style="margin-top:4px;"></div>
+            <div>
+              <h2 style="font-size:22px; font-weight:700; margin:0 0 6px; letter-spacing:-0.02em; line-height:1.25;">Review Q2 numbers with co-owner</h2>
+              <div style="font-size:12px; color:var(--text-3); display:flex; gap:6px; align-items:center;">
+                <span class="chip" style="padding:3px 9px; border-radius:999px; background:rgba(245,158,11,0.14); color:var(--amber); font-weight:600;">Carried · was Tue</span>
+                <span class="chip" style="padding:3px 9px; border-radius:999px; background:rgba(244,114,182,0.14); color:var(--pink); font-weight:600;">Joint Business</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="font-size:13px; color:var(--text-2); line-height:1.55; padding:14px; background:var(--surface); border-radius:12px; border:1px solid var(--border-soft); margin-bottom:18px;">
+            Spreadsheet is in Drive. Focus on the customer-acquisition cost trend and the deferred-revenue line — we missed forecast by ~8%.
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:1px; border-radius:14px; overflow:hidden; background:var(--surface); border:1px solid var(--border-soft);">
+            <div style="display:flex; justify-content:space-between; padding:14px 16px; font-size:13px;"><span style="color:var(--text-3);">Due</span><span style="font-weight:600;">Today, 9:00 AM</span></div>
+            <div style="display:flex; justify-content:space-between; padding:14px 16px; font-size:13px; border-top:1px solid var(--border-soft);"><span style="color:var(--text-3);">Priority</span><span style="font-weight:600; color:var(--amber);">Medium</span></div>
+            <div style="display:flex; justify-content:space-between; padding:14px 16px; font-size:13px; border-top:1px solid var(--border-soft);"><span style="color:var(--text-3);">Reminders</span><span style="font-weight:600;">At due time · 30 min before</span></div>
+            <div style="display:flex; justify-content:space-between; padding:14px 16px; font-size:13px; border-top:1px solid var(--border-soft);"><span style="color:var(--text-3);">Created by</span><span style="font-weight:600;">M · 2 days ago</span></div>
+          </div>
+
+          <div style="margin-top:18px;">
+            <div style="font-size:11px; color:var(--text-3); font-weight:600; letter-spacing:0.16em; text-transform:uppercase; margin-bottom:10px;">Subtasks · 2 of 3</div>
+            <div class="task" style="padding:11px 14px;">
+              <div class="check done" style="width:18px; height:18px;">
+                <svg viewBox="0 0 12 10" fill="none" style="width:8px;"><path d="M1 5l3 3 7-7" stroke="white" stroke-width="2"/></svg>
+              </div>
+              <div class="body"><div class="title" style="font-size:13px;">Pull the dashboard CSVs</div></div>
+            </div>
+            <div class="task" style="padding:11px 14px; margin-top:6px;">
+              <div class="check done" style="width:18px; height:18px;">
+                <svg viewBox="0 0 12 10" fill="none" style="width:8px;"><path d="M1 5l3 3 7-7" stroke="white" stroke-width="2"/></svg>
+              </div>
+              <div class="body"><div class="title" style="font-size:13px;">Read M's notes from Tuesday</div></div>
+            </div>
+            <div class="task" style="padding:11px 14px; margin-top:6px;">
+              <div class="check" style="width:18px; height:18px;"></div>
+              <div class="body"><div class="title" style="font-size:13px;">Write 3-bullet summary for Friday</div></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ==================== WIDGETS ==================== -->
+  <div class="section-label">iOS widgets</div>
+  <h2 class="section-title">On your Home Screen and Lock Screen</h2>
+  <p class="section-desc">Widgets are first-class — not an afterthought. Three Home Screen sizes plus the full set of iOS 16+ Lock Screen accessories. Tap any task on the medium or large widget to mark it complete without opening the app (iOS 17+ interactive widgets).</p>
+
+  <div class="widget-grid">
+
+    <div class="widget-card">
+      <h3>Home Screen — Small &amp; Medium</h3>
+      <p class="sub">Glanceable: tasks count, next task, today list.</p>
+      <div class="ws">
+        <div class="widget small">
+          <div class="w-head"><span>Cadence · Today</span></div>
+          <div>
+            <div class="w-num">6</div>
+            <div class="w-sub">tasks today</div>
+          </div>
+          <div class="w-next"><strong style="color:var(--text)">Next: 10:00 AM</strong><br/>Sam Quarterly Sync</div>
+        </div>
+        <div class="widget med">
+          <div class="w-head"><span>Cadence · Today</span><span>Wed May 13</span></div>
+          <div class="w-task">
+            <div class="dot"></div>
+            <div class="ti">Reply to insurance broker</div>
+            <div class="tm">carried</div>
+          </div>
+          <div class="w-task">
+            <div class="dot"></div>
+            <div class="ti">Sam Quarterly Sync</div>
+            <div class="tm">10:00</div>
+          </div>
+          <div class="w-task">
+            <div class="dot"></div>
+            <div class="ti">Send proposal to acme.co</div>
+            <div class="tm">2:30 PM</div>
+          </div>
+          <div class="w-task done">
+            <div class="dot done"></div>
+            <div class="ti">Morning brief skim</div>
+            <div class="tm">done</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="widget-card">
+      <h3>Home Screen — Large</h3>
+      <p class="sub">The full Today snapshot at a glance.</p>
+      <div class="widget large">
+        <div class="w-head"><span>Cadence · Today</span><span>Wed May 13</span></div>
+        <div style="display:flex; gap:8px; margin-bottom:14px;">
+          <div style="flex:1; padding:8px 10px; border-radius:10px; background:rgba(124,92,255,0.10);">
+            <div style="font-size:9px; color:var(--text-3); letter-spacing:0.1em; text-transform:uppercase; font-weight:600;">Tasks</div>
+            <div style="font-size:20px; font-weight:700; color:var(--accent-2);">6</div>
+          </div>
+          <div style="flex:1; padding:8px 10px; border-radius:10px; background:rgba(45,212,191,0.10);">
+            <div style="font-size:9px; color:var(--text-3); letter-spacing:0.1em; text-transform:uppercase; font-weight:600;">Events</div>
+            <div style="font-size:20px; font-weight:700; color:var(--teal);">3</div>
+          </div>
+          <div style="flex:1; padding:8px 10px; border-radius:10px; background:rgba(245,158,11,0.10);">
+            <div style="font-size:9px; color:var(--text-3); letter-spacing:0.1em; text-transform:uppercase; font-weight:600;">Carried</div>
+            <div style="font-size:20px; font-weight:700; color:var(--amber);">2</div>
+          </div>
+        </div>
+        <div class="w-task"><div class="dot"></div><div class="ti">Reply to insurance broker</div><div class="tm">carried</div></div>
+        <div class="w-task"><div class="dot"></div><div class="ti">Review Q2 with M</div><div class="tm">carried</div></div>
+        <div class="w-task"><div class="dot"></div><div class="ti">Sam Quarterly Sync</div><div class="tm">10:00</div></div>
+        <div class="w-task"><div class="dot"></div><div class="ti">Lunch w/ Aria</div><div class="tm">12:15</div></div>
+        <div class="w-task"><div class="dot"></div><div class="ti">Send proposal to acme.co</div><div class="tm">2:30</div></div>
+        <div class="w-task done"><div class="dot done"></div><div class="ti">Morning brief skim</div><div class="tm">done</div></div>
+      </div>
+    </div>
+
+    <div class="widget-card" style="grid-column: 1 / -1;">
+      <h3>Lock Screen — iOS 16+ accessories</h3>
+      <p class="sub">Tasks-due count, next event countdown, inline summary.</p>
+      <div style="display:flex; gap:32px; align-items:center; flex-wrap:wrap; justify-content:center;">
+        <div class="lockscreen">
+          <div class="ls-time">9:41</div>
+          <div class="ls-date">Wednesday, May 13</div>
+          <div class="ls-widgets">
+            <div class="ls-circle">
+              <div class="n">6</div>
+              <div class="l">Tasks</div>
+            </div>
+            <div class="ls-rect">
+              <div class="h">Cadence · Next</div>
+              <div class="ti">10:00 Sam Quarterly Sync</div>
+            </div>
+          </div>
+          <div class="ls-inline">⏵ 4 tasks · next: 2:30 PM Sam call</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ==================== MAC ==================== -->
+  <div class="section-label">Mac (v1.1)</div>
+  <h2 class="section-title">Same data. Keyboard-first.</h2>
+  <p class="section-desc">The Mac app is the same SwiftUI codebase compiled for macOS, with a sidebar, keyboard shortcuts (⌘N add task, ⌘D done, ⌘1–9 switch list), and an optional menubar mini-app for adding tasks without leaving your current window.</p>
+
+  <div class="mac-shell">
+    <div class="mac-titlebar">
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      <div class="t">Cadence — Today</div>
+    </div>
+    <div class="mac-body">
+      <div class="mac-side">
+        <div class="section">Workspaces</div>
+        <div class="li active"><span class="ic" style="background:var(--accent-2);"></span> Today <span class="count">6</span></div>
+        <div class="li"><span class="ic" style="background:var(--teal);"></span> This week <span class="count">22</span></div>
+        <div class="li"><span class="ic" style="background:var(--amber);"></span> Carried over <span class="count">2</span></div>
+
+        <div class="section">Lists</div>
+        <div class="li"><span class="ic" style="background:var(--accent-2);"></span> Personal <span class="count">8</span></div>
+        <div class="li"><span class="ic" style="background:var(--pink);"></span> Joint Business <span class="count">14</span></div>
+        <div class="li"><span class="ic" style="background:var(--teal);"></span> Business · Private <span class="count">6</span></div>
+        <div class="li"><span class="ic" style="background:var(--orange);"></span> Home projects <span class="count">5</span></div>
+
+        <div class="section">Calendars</div>
+        <div class="li"><span class="ic" style="background:#3B82F6;"></span> Work (Google) <span class="count">·</span></div>
+        <div class="li"><span class="ic" style="background:var(--mint);"></span> Personal (Google)<span class="count">·</span></div>
+      </div>
+      <div class="mac-main">
+        <h1 class="mac-title">Wednesday, May 13</h1>
+        <p class="mac-sub">6 tasks · 3 events · 2 carried over</p>
+
+        <div style="display:flex; gap:14px; margin-bottom:24px;">
+          <button style="padding:8px 14px; border-radius:9px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-weight:500; font-size:13px;">+ Quick add &nbsp;<span style="color:var(--text-3); font-family:monospace; font-size:11px;">⌘N</span></button>
+          <button style="padding:8px 14px; border-radius:9px; border:none; background:linear-gradient(135deg, var(--accent), #5B3CFA); color:white; font-weight:600; font-size:13px;">✦ Plan my day with Claude</button>
+        </div>
+
+        <div class="mac-section">Carried over</div>
+        <div class="task elevated" style="margin-bottom:6px;">
+          <div class="check med"></div>
+          <div class="body"><div class="title">Reply to insurance broker</div><div class="meta"><span class="chip">was Mon</span><span class="chip purple">Personal</span></div></div>
+        </div>
+        <div class="task elevated" style="margin-bottom:6px;">
+          <div class="check"></div>
+          <div class="body"><div class="title">Review Q2 numbers with co-owner</div><div class="meta"><span class="chip">was Tue</span><span class="chip pink">Joint Business</span></div></div>
+          <div class="avatar">M</div>
+        </div>
+
+        <div class="mac-section">Timeline</div>
+        <div class="event" style="margin-bottom:6px;">
+          <div class="rail"></div>
+          <div class="body"><div class="title">Sam Quarterly Sync</div><div class="meta">10:00 – 10:45 AM · Google Meet</div></div>
+        </div>
+        <div class="task" style="margin-bottom:6px;">
+          <div class="check"></div>
+          <div class="body"><div class="title">Send proposal to acme.co</div><div class="meta"><span class="time">2:30 PM</span><span class="chip pink">Joint Business</span></div></div>
+        </div>
+        <div class="event" style="margin-bottom:6px;">
+          <div class="rail"></div>
+          <div class="body"><div class="title">Lunch with Aria</div><div class="meta">12:15 – 1:15 PM · The Lab</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SYSTEM ==================== -->
+  <div class="section-label">Design system</div>
+  <h2 class="section-title">Color and tone</h2>
+  <p class="section-desc">A focused palette: violet for primary actions, teal for calendar, amber for warnings and "carried over", mint for completion. Everything else fades to a quiet neutral so content takes the stage.</p>
+
+  <div class="swatch-row">
+    <div class="swatch"><div class="chip" style="background:linear-gradient(135deg,#7C5CFF,#5B3CFA);"></div><span class="name">Violet · Accent</span><span class="hex">#7C5CFF</span></div>
+    <div class="swatch"><div class="chip" style="background:#2DD4BF;"></div><span class="name">Teal · Calendar</span><span class="hex">#2DD4BF</span></div>
+    <div class="swatch"><div class="chip" style="background:#34D399;"></div><span class="name">Mint · Complete</span><span class="hex">#34D399</span></div>
+    <div class="swatch"><div class="chip" style="background:#F59E0B;"></div><span class="name">Amber · Carried</span><span class="hex">#F59E0B</span></div>
+    <div class="swatch"><div class="chip" style="background:#FB7185;"></div><span class="name">Rose · High pri</span><span class="hex">#FB7185</span></div>
+    <div class="swatch"><div class="chip" style="background:#F472B6;"></div><span class="name">Pink · Shared</span><span class="hex">#F472B6</span></div>
+    <div class="swatch"><div class="chip" style="background:#FB923C;"></div><span class="name">Orange · Home</span><span class="hex">#FB923C</span></div>
+    <div class="swatch"><div class="chip" style="background:#07080C; border:1px solid #2A2F3F;"></div><span class="name">Ink · Background</span><span class="hex">#07080C</span></div>
+  </div>
+
+  <div class="footer-note">
+    <strong>About these mockups.</strong> These are static visual targets, not the final shipping UI — final spacing, typography, and motion will be tuned in SwiftUI with real device testing. The mockups demonstrate the visual direction: dark, calm, premium, with violet as the signature accent. A light theme will ship alongside (system default).<br/><br/>
+    <strong>Working name.</strong> Cadence is a placeholder — Appendix A in the spec lists alternates. The accent color and design language work with any of them.<br/><br/>
+    <strong>Tap to interact.</strong> The mockups are static here, but the implemented widgets will be interactive on iOS 17+ — tap a task on the Home Screen to complete it without opening the app.
+  </div>
+
+</div>
+</body>
+</html>
