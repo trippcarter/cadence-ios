@@ -1,8 +1,15 @@
 import SwiftUI
+import SwiftData
 
 struct RootView: View {
-    @State private var selectedTab: AppTab = .today
+    @State private var selectedTab: AppTab = AppLaunchArgs.initialTab
     @State private var showingAddTask = false
+    @State private var listsPath = NavigationPath()
+    @State private var pendingTaskDetail: TaskItem?
+    @State private var didHandleLaunchArgs = false
+
+    @Query private var allLists: [TaskList]
+    @Query private var allTasks: [TaskItem]
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -15,6 +22,12 @@ struct RootView: View {
         .background(Tokens.Color.bg.ignoresSafeArea())
         .sheet(isPresented: $showingAddTask) {
             AddTaskSheet()
+        }
+        .sheet(item: $pendingTaskDetail) { task in
+            TaskDetailSheet(task: task)
+        }
+        .onAppear {
+            applyLaunchArgsOnce()
         }
     }
 
@@ -29,15 +42,32 @@ struct RootView: View {
                 subtitle: "Coming next session. Tasks and events laid out across the next seven days."
             )
         case .lists:
-            PlaceholderView(
-                title: "Lists",
-                subtitle: "Inbox, Personal, Business, and Joint Business. Tap to drill in — coming next session."
-            )
+            NavigationStack(path: $listsPath) {
+                ListsView()
+            }
         case .you:
             PlaceholderView(
                 title: "You",
                 subtitle: "Settings, connected accounts, notifications, and AI preferences live here."
             )
+        }
+    }
+
+    private func applyLaunchArgsOnce() {
+        guard !didHandleLaunchArgs else { return }
+        didHandleLaunchArgs = true
+
+        if let listName = AppLaunchArgs.openListName,
+           let list = allLists.first(where: { $0.name.caseInsensitiveCompare(listName) == .orderedSame }) {
+            selectedTab = .lists
+            listsPath.append(ListSource.list(list))
+        }
+
+        if let taskMatch = AppLaunchArgs.openTaskMatching {
+            let needle = taskMatch.lowercased()
+            if let task = allTasks.first(where: { $0.title.lowercased().contains(needle) }) {
+                pendingTaskDetail = task
+            }
         }
     }
 }

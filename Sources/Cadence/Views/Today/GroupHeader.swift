@@ -32,6 +32,5 @@ struct GroupHeader: View {
             }
             Spacer()
         }
-        .padding(.horizontal, Tokens.Space.lg)
     }
 }

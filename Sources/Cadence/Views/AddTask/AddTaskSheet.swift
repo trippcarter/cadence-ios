@@ -2,6 +2,13 @@ import SwiftUI
 import SwiftData
 
 struct AddTaskSheet: View {
+    /// When provided, the list picker pre-selects this list on appear.
+    let defaultList: TaskList?
+
+    init(defaultList: TaskList? = nil) {
+        self.defaultList = defaultList
+    }
+
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
@@ -103,8 +110,9 @@ struct AddTaskSheet: View {
         .preferredColorScheme(.dark)
         .onAppear {
             if selectedListID == nil {
-                // Default to the first non-Inbox list when present; else Inbox.
-                if let preferred = lists.first(where: { $0.name != "Inbox" }) ?? lists.first {
+                if let defaultList {
+                    selectedListID = defaultList.persistentModelID
+                } else if let preferred = lists.first(where: { $0.name != "Inbox" }) ?? lists.first {
                     selectedListID = preferred.persistentModelID
                 }
             }

@@ -22,4 +22,13 @@ enum Haptics {
         generator.impactOccurred()
         #endif
     }
+
+    /// Soft buzz used right before a destructive action confirmation appears.
+    static func warning() {
+        #if canImport(UIKit) && !os(watchOS)
+        let generator = UINotificationFeedbackGenerator()
+        generator.prepare()
+        generator.notificationOccurred(.warning)
+        #endif
+    }
 }

@@ -5,23 +5,31 @@ struct TaskRow: View {
     @Bindable var task: TaskItem
     /// When true, the row shows the "was Mon" carried-over chip.
     var showsCarriedOverChip: Bool = false
+    /// Tapping the row body (everything except the complete circle) fires this.
+    var onTitleTap: (() -> Void)? = nil
     @Environment(\.modelContext) private var modelContext
 
     var body: some View {
         HStack(alignment: .top, spacing: Tokens.Space.md) {
             completeButton
-            VStack(alignment: .leading, spacing: 4) {
-                Text(task.title)
-                    .font(Tokens.Font.taskTitle)
-                    .foregroundStyle(task.status == .completed ? Tokens.Color.text3 : Tokens.Color.text)
-                    .strikethrough(task.status == .completed, color: Tokens.Color.text3)
-                    .lineLimit(2)
-                meta
-                if !task.subtasks.isEmpty {
-                    subtaskSummary
+            Button(action: { onTitleTap?() }) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(task.title)
+                        .font(Tokens.Font.taskTitle)
+                        .foregroundStyle(task.status == .completed ? Tokens.Color.text3 : Tokens.Color.text)
+                        .strikethrough(task.status == .completed, color: Tokens.Color.text3)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    meta
+                    if !task.subtasks.isEmpty {
+                        subtaskSummary
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
-            Spacer(minLength: 0)
+            .buttonStyle(.plain)
+            .disabled(onTitleTap == nil)
         }
         .padding(.vertical, Tokens.Space.md)
         .padding(.horizontal, Tokens.Space.lg)
@@ -31,7 +39,6 @@ struct TaskRow: View {
             RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous)
                 .stroke(Tokens.Color.borderSoft, lineWidth: 0.5)
         )
-        .contentShape(Rectangle())
     }
 
     // MARK: Complete circle
