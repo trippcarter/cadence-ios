@@ -450,12 +450,14 @@ struct TaskDetailSheet: View {
         modelContext.delete(task)
         try? modelContext.save()
         Task { await NotificationManager.shared.cancelReminders(forTaskID: taskID) }
+        WidgetReloader.reload()
         dismiss()
     }
 
     private func persist() {
         try? modelContext.save()
         Task { await NotificationManager.shared.scheduleReminders(for: task) }
+        WidgetReloader.reload()
     }
 
     private func dismissAndSave() {

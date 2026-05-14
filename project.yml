@@ -29,6 +29,15 @@ targets:
       - path: Sources/Cadence
       - path: Resources/iOS
         optional: true
+      # Widget views are shared with the main app so the Widget Gallery preview
+      # (launched with --widget-preview=...) can render them at real dimensions
+      # without re-implementing the SwiftUI.
+      - path: Sources/CadenceWidget/WidgetEntry.swift
+      - path: Sources/CadenceWidget/CompleteTaskFromWidgetIntent.swift
+      - path: Sources/CadenceWidget/Views
+    dependencies:
+      - target: CadenceWidget
+        embed: true
     settings:
       base:
         PRODUCT_NAME: Cadence
@@ -41,6 +50,7 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        CODE_SIGN_ENTITLEMENTS: Sources/Cadence/Cadence.entitlements
 
   Cadence-macOS:
     type: application
@@ -58,3 +68,28 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         INFOPLIST_KEY_LSApplicationCategoryType: "public.app-category.productivity"
         INFOPLIST_KEY_NSHumanReadableCopyright: ""
+
+  CadenceWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Sources/CadenceWidget
+      # Shared source files (compiled into both targets). See SharedContainer.swift
+      # for the contract — both targets must agree on schema + App Group ID.
+      - path: Sources/Cadence/Models/Models.swift
+      - path: Sources/Cadence/Models/ListPalette.swift
+      - path: Sources/Cadence/Tokens.swift
+      - path: Sources/Cadence/Util/SharedContainer.swift
+    settings:
+      base:
+        PRODUCT_NAME: CadenceWidget
+        PRODUCT_BUNDLE_IDENTIFIER: net.mcinnis.cadence.widget
+        INFOPLIST_KEY_CFBundleDisplayName: Cadence
+        SKIP_INSTALL: NO
+        CODE_SIGN_ENTITLEMENTS: Sources/CadenceWidget/CadenceWidget.entitlements
+    info:
+      path: Sources/CadenceWidget/Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension

@@ -11,9 +11,7 @@ struct CadenceApp: App {
 
     init() {
         do {
-            let schema = Schema([TaskItem.self, TaskList.self])
-            let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-            container = try ModelContainer(for: schema, configurations: [config])
+            container = try CadenceContainer.makeContainer()
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }

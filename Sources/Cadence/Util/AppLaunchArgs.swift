@@ -27,6 +27,11 @@ enum AppLaunchArgs {
         CommandLine.arguments.contains("--skip-onboarding")
     }
 
+    /// `--widget-preview=small|medium|large|circular|rectangular|inline|lockall`
+    /// short-circuits RootView and renders the WidgetGallery at real WidgetKit
+    /// dimensions for clean screenshots.
+    static var widgetPreview: String? { value(for: "--widget-preview") }
+
     private static func value(for key: String) -> String? {
         for arg in CommandLine.arguments {
             if arg.hasPrefix("\(key)=") {

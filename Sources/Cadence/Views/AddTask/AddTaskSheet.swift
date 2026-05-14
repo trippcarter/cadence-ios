@@ -146,6 +146,7 @@ struct AddTaskSheet: View {
         modelContext.insert(task)
         try? modelContext.save()
         Haptics.success()
+        WidgetReloader.reload()
         dismiss()
     }
 }

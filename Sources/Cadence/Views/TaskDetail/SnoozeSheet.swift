@@ -154,6 +154,7 @@ struct SnoozeSheet: View {
         }
         try? modelContext.save()
         Task { await NotificationManager.shared.cancelReminders(forTaskID: task.id) }
+        WidgetReloader.reload()
         dismiss()
     }
 

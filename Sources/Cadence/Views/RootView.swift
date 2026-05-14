@@ -15,6 +15,16 @@ struct RootView: View {
     @Query private var allTasks: [TaskItem]
 
     var body: some View {
+        Group {
+            if let preview = AppLaunchArgs.widgetPreview {
+                WidgetGalleryView(preview: preview)
+            } else {
+                appContent
+            }
+        }
+    }
+
+    private var appContent: some View {
         ZStack(alignment: .bottom) {
             content
             BottomTabBar(selected: $selectedTab) {

@@ -53,6 +53,7 @@ struct TaskRowActionContainer<Content: View>: View {
                     modelContext.delete(task)
                     try? modelContext.save()
                     Task { await NotificationManager.shared.cancelReminders(forTaskID: taskID) }
+                    WidgetReloader.reload()
                     deletingTask = nil
                 }
                 Button("Cancel", role: .cancel) {
@@ -85,5 +86,6 @@ struct TaskRowActionContainer<Content: View>: View {
                 await NotificationManager.shared.cancelReminders(forTaskID: task.id)
             }
         }
+        WidgetReloader.reload()
     }
 }
