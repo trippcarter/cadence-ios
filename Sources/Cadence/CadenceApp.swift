@@ -18,6 +18,10 @@ struct CadenceApp: App {
 
         SeedData.bootstrapIfNeeded(container.mainContext)
 
+        // Share the App's mainContext with the calendar service so SwiftData
+        // writes from sign-in / sign-out / sync are visible to @Query views.
+        GoogleCalendarService.shared.bindContext(container.mainContext)
+
         if AppLaunchArgs.skipOnboarding {
             UserDefaults.standard.set(true, forKey: PrefsKey.hasOnboarded)
         }

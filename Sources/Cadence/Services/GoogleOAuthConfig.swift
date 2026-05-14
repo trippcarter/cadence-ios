@@ -27,9 +27,21 @@ enum GoogleOAuthConfig {
         URL(string: "\(reversedClientID):/oauthredirect")!
     }
 
-    /// Read + write events scope (Phase 7a — two-way sync). This single scope
-    /// covers both calendarList listing AND event CRUD per Google's API docs.
-    static let scope = "https://www.googleapis.com/auth/calendar.events"
+    /// Scopes Cadence asks Google for. Per Google's API docs, the two-scope
+    /// combo is required because:
+    ///   - `calendar.events` covers events.list/insert/patch/delete (two-way
+    ///     sync of time-blocked tasks).
+    ///   - `calendar.readonly` covers calendarList.list (populating the
+    ///     calendar picker in Settings). `calendar.events` alone returns 403
+    ///     on calendarList endpoints.
+    static let scopes: [String] = [
+        "https://www.googleapis.com/auth/calendar.events",
+        "https://www.googleapis.com/auth/calendar.readonly"
+    ]
+
+    /// Convenience for needsReconnect — the scope whose presence indicates the
+    /// user has the two-way-sync upgrade.
+    static let writeScope = "https://www.googleapis.com/auth/calendar.events"
 
     /// The legacy read-only scope previous builds requested. Used at runtime
     /// to detect when an existing account is on the old scope and needs to

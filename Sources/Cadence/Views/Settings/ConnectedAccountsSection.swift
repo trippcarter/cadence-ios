@@ -17,26 +17,26 @@ struct ConnectedAccountsSection: View {
     @AppStorage(PrefsKey.defaultMirrorCalendarID) private var defaultMirrorCalendarID: String = ""
     @AppStorage(PrefsKey.autoMirrorTimeBlocked) private var autoMirror: Bool = false
 
-    private var googleAccount: ConnectedAccount? {
-        accounts.first(where: { $0.provider == "google" })
+    private var googleAccounts: [ConnectedAccount] {
+        accounts.filter { $0.provider == "google" }
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            if let account = googleAccount {
-                if service.needsReconnect(for: account) {
-                    reconnectBanner(account: account)
-                    Divider().background(Tokens.Color.borderSoft)
-                }
-                connectedHeader(account: account)
-                Divider().background(Tokens.Color.borderSoft)
-                calendarsRow(account: account)
-                Divider().background(Tokens.Color.borderSoft)
-                syncPrefsRow(account: account)
-                Divider().background(Tokens.Color.borderSoft)
-                actionsRow(account: account)
-            } else {
+            if googleAccounts.isEmpty {
                 disconnectedRow
+            } else {
+                ForEach(Array(googleAccounts.enumerated()), id: \.element.id) { index, account in
+                    if index > 0 {
+                        Divider().background(Tokens.Color.borderSoft)
+                            .padding(.vertical, Tokens.Space.xs)
+                    }
+                    accountCard(account: account, isOnly: googleAccounts.count == 1)
+                }
+                Divider().background(Tokens.Color.borderSoft)
+                syncPrefsBlock
+                Divider().background(Tokens.Color.borderSoft)
+                addAccountRow
             }
             if let feedback {
                 Divider().background(Tokens.Color.borderSoft)
@@ -48,6 +48,24 @@ struct ConnectedAccountsSection: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+        .onChange(of: googleAccounts.count) { _, _ in
+            // Clear stale messages when account state actually changes so
+            // the UI doesn't leave a misleading line at the bottom.
+            feedback = nil
+        }
+    }
+
+    @ViewBuilder
+    private func accountCard(account: ConnectedAccount, isOnly: Bool) -> some View {
+        if service.needsReconnect(for: account) {
+            reconnectBanner(account: account)
+            Divider().background(Tokens.Color.borderSoft)
+        }
+        connectedHeader(account: account)
+        Divider().background(Tokens.Color.borderSoft)
+        calendarsRow(account: account)
+        Divider().background(Tokens.Color.borderSoft)
+        actionsRow(account: account)
     }
 
     // MARK: Connected state
@@ -187,10 +205,34 @@ struct ConnectedAccountsSection: View {
         .background(Tokens.Color.amber.opacity(0.06))
     }
 
+    // MARK: + Add another Google account
+
+    private var addAccountRow: some View {
+        Button {
+            connect()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "plus.circle")
+                    .font(.system(size: 14, weight: .semibold))
+                Text(service.isSigningIn ? "Connecting…" : "Add Google account")
+                    .font(Tokens.Font.bodyEmphasis)
+                Spacer()
+            }
+            .foregroundStyle(Tokens.Color.accent2)
+            .padding(.horizontal, Tokens.Space.lg)
+            .padding(.vertical, Tokens.Space.md)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(service.isSigningIn)
+    }
+
     // MARK: Sync prefs (default calendar + auto-mirror)
 
-    private func syncPrefsRow(account: ConnectedAccount) -> some View {
-        let enabledCalendars = account.calendars
+    private var syncPrefsBlock: some View {
+        // Aggregate calendars across all connected Google accounts.
+        let enabledCalendars = googleAccounts
+            .flatMap { $0.calendars }
             .filter { $0.isEnabled }
             .sorted { $0.name < $1.name }
         return VStack(alignment: .leading, spacing: Tokens.Space.md) {

@@ -26,7 +26,11 @@ final class GoogleCalendarService: ObservableObject {
 
     static let shared = GoogleCalendarService()
 
-    private let context: ModelContext
+    /// The ModelContext this service reads/writes. Set once at app launch via
+    /// `bindContext(_:)` so it matches the @Query-bound mainContext in the UI.
+    /// Until bound, we fall back to a fresh container — fine for unit tests
+    /// or pre-launch, but means writes won't show up in @Query views.
+    private var context: ModelContext
 
     /// Tracks the most recent error so the UI can surface a banner.
     @Published var lastError: GoogleCalendarError?
@@ -47,9 +51,16 @@ final class GoogleCalendarService: ObservableObject {
         if let context {
             self.context = context
         } else {
-            // Late-bound — set by setContext() once the App's ModelContainer is up.
+            // Late-bound — bindContext() is called from CadenceApp on launch
+            // so this default is rarely used in practice.
             self.context = ModelContext(try! CadenceContainer.makeContainer())
         }
+    }
+
+    /// Attach the service to the App's main ModelContext so writes are
+    /// visible to all SwiftUI @Query views. Call exactly once on app start.
+    func bindContext(_ newContext: ModelContext) {
+        self.context = newContext
     }
 
     /// True if the account's persisted auth state lacks the new
@@ -65,7 +76,9 @@ final class GoogleCalendarService: ObservableObject {
         // that Google actually granted. The OAuth request scopes can differ
         // from granted, so we must inspect the response.
         let granted = state.lastTokenResponse?.scope ?? state.lastAuthorizationResponse.scope ?? ""
-        return !granted.contains("calendar.events")
+        // Need both scopes for full Phase 7a functionality: .events for the
+        // two-way write sync, .readonly for the calendarList endpoint.
+        return !granted.contains("calendar.events") || !granted.contains("calendar.readonly")
         #else
         return false
         #endif
@@ -109,7 +122,7 @@ final class GoogleCalendarService: ObservableObject {
             configuration: config,
             clientId: GoogleOAuthConfig.clientID,
             clientSecret: nil,
-            scopes: [GoogleOAuthConfig.scope, "openid", "email", "profile"],
+            scopes: GoogleOAuthConfig.scopes + ["openid", "email", "profile"],
             redirectURL: GoogleOAuthConfig.redirectURI,
             responseType: OIDResponseTypeCode,
             additionalParameters: nil
