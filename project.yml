@@ -8,6 +8,11 @@ options:
   generateEmptyDirectories: true
   developmentLanguage: en
 
+packages:
+  AppAuth:
+    url: https://github.com/openid/AppAuth-iOS
+    from: "1.7.0"
+
 settings:
   base:
     SWIFT_VERSION: "5.9"
@@ -38,19 +43,42 @@ targets:
     dependencies:
       - target: CadenceWidget
         embed: true
+      - package: AppAuth
+        product: AppAuth
     settings:
       base:
         PRODUCT_NAME: Cadence
         PRODUCT_BUNDLE_IDENTIFIER: net.mcinnis.cadence
         TARGETED_DEVICE_FAMILY: "1,2"
         SUPPORTS_MACCATALYST: NO
-        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait"
-        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        GENERATE_INFOPLIST_FILE: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         CODE_SIGN_ENTITLEMENTS: Sources/Cadence/Cadence.entitlements
+    info:
+      path: Sources/Cadence/Info.plist
+      properties:
+        CFBundleDisplayName: Cadence
+        UILaunchScreen:
+          UIColorName: ""
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+          UISceneConfigurations:
+            UIWindowSceneSessionRoleApplication:
+              - UISceneConfigurationName: Default Configuration
+                UISceneDelegateClassName: ""
+        CFBundleURLTypes:
+          - CFBundleTypeRole: Editor
+            CFBundleURLName: net.mcinnis.cadence.google-oauth
+            CFBundleURLSchemes:
+              - com.googleusercontent.apps.936849433688-9fa47d098o9ik1cq7ku2lre7su7v9091
 
   Cadence-macOS:
     type: application
@@ -79,6 +107,9 @@ targets:
       # for the contract — both targets must agree on schema + App Group ID.
       - path: Sources/Cadence/Models/Models.swift
       - path: Sources/Cadence/Models/ListPalette.swift
+      - path: Sources/Cadence/Models/CachedEvent.swift
+      - path: Sources/Cadence/Models/CalendarConfig.swift
+      - path: Sources/Cadence/Models/ConnectedAccount.swift
       - path: Sources/Cadence/Tokens.swift
       - path: Sources/Cadence/Util/SharedContainer.swift
     settings:

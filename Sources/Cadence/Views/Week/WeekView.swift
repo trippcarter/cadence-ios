@@ -3,10 +3,12 @@ import SwiftData
 
 struct WeekView: View {
     @Query private var allTasks: [TaskItem]
+    @Query private var allEvents: [CachedEvent]
 
     @State private var weekStart: Date = .now
     @State private var selectedDay: Date = .now
     @State private var detailTask: TaskItem?
+    @State private var detailEvent: CachedEvent?
 
     var body: some View {
         ZStack {
@@ -24,10 +26,11 @@ struct WeekView: View {
                 ScrollView {
                     WeekTimeline(
                         tasks: tasksForSelectedDay,
-                        day: selectedDay
-                    ) { task in
-                        detailTask = task
-                    }
+                        events: eventsForSelectedDay,
+                        day: selectedDay,
+                        onTapTask: { detailTask = $0 },
+                        onTapEvent: { detailEvent = $0 }
+                    )
                     Color.clear.frame(height: 120)
                 }
                 .scrollIndicators(.hidden)
@@ -40,6 +43,9 @@ struct WeekView: View {
         }
         .sheet(item: $detailTask) { task in
             TaskDetailSheet(task: task)
+        }
+        .sheet(item: $detailEvent) { event in
+            EventDetailSheet(event: event)
         }
     }
 
@@ -86,9 +92,14 @@ struct WeekView: View {
         }
     }
 
+    private var eventsForSelectedDay: [CachedEvent] {
+        let cal = Calendar.current
+        return allEvents.filter { cal.isDate($0.start, inSameDayAs: selectedDay) }
+    }
+
     /// Up to 3 dots per day:
     /// - violet for open task on this day
-    /// - mint for completed task on this day
+    /// - teal for calendar event on this day
     /// - amber if the day is in the past and had carried-over work
     private func dots(for day: Date) -> [Color] {
         let cal = Calendar.current
@@ -99,13 +110,13 @@ struct WeekView: View {
             guard let due = t.dueDate, t.parent == nil else { return false }
             return cal.isDate(due, inSameDayAs: day)
         }
+        let eventsOnDay = allEvents.filter { cal.isDate($0.start, inSameDayAs: day) }
         let openCount = tasksOnDay.filter { $0.status == .open }.count
-        let completedCount = tasksOnDay.filter { $0.status == .completed }.count
         let hadCarried = dayStart < todayStart && openCount > 0
 
         var result: [Color] = []
         if openCount > 0 { result.append(Tokens.Color.accent) }
-        if completedCount > 0 { result.append(Tokens.Color.mint) }
+        if !eventsOnDay.isEmpty { result.append(Tokens.Color.teal) }
         if hadCarried { result.append(Tokens.Color.amber) }
         return Array(result.prefix(3))
     }

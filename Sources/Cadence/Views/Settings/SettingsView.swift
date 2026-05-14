@@ -33,6 +33,10 @@ struct SettingsView: View {
                     rowKeyValue("Build", value: buildNumber)
                 }
 
+                section(title: "Connected accounts") {
+                    ConnectedAccountsSection()
+                }
+
                 section(title: "Notifications") {
                     notificationsToggleRow
                     Divider().background(Tokens.Color.borderSoft)

@@ -24,7 +24,13 @@ enum CadenceContainer {
     /// widget not seeing data. The Simulator bypasses signing checks, so the
     /// shared path works for screenshot/dev purposes either way.
     static func makeContainer() throws -> ModelContainer {
-        let schema = Schema([TaskItem.self, TaskList.self])
+        let schema = Schema([
+            TaskItem.self,
+            TaskList.self,
+            CachedEvent.self,
+            CalendarConfig.self,
+            ConnectedAccount.self
+        ])
 
         if let groupURL = FileManager.default.containerURL(
             forSecurityApplicationGroupIdentifier: appGroupID

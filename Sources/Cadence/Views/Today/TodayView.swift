@@ -4,11 +4,20 @@ import SwiftData
 struct TodayView: View {
     @Query(sort: [SortDescriptor(\TaskItem.dueDate, order: .forward)])
     private var allTasks: [TaskItem]
+    @Query(sort: [SortDescriptor(\CachedEvent.start, order: .forward)])
+    private var allEvents: [CachedEvent]
+
+    @ObservedObject private var calendarService = GoogleCalendarService.shared
+
+    /// Set by RootView via env to flip the selected tab when the user taps
+    /// the "Reconnect Google Calendar" banner.
+    var onRequestSettingsTab: (() -> Void)? = nil
 
     /// Refreshed on appear so tasks recompute against the current date if the
     /// app stays open past midnight.
     @State private var now: Date = .now
     @State private var detailTask: TaskItem?
+    @State private var detailEvent: CachedEvent?
     @State private var hasAppeared = false
 
     var body: some View {
@@ -17,14 +26,32 @@ struct TodayView: View {
 
             List {
                 Section {
+                    if showsReconnectBanner {
+                        ReconnectBanner {
+                            onRequestSettingsTab?()
+                        }
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: Tokens.Space.md, leading: Tokens.Space.lg, bottom: 0, trailing: Tokens.Space.lg))
+                    }
+
                     TodayHeader(date: now)
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .listRowInsets(EdgeInsets(top: Tokens.Space.md, leading: Tokens.Space.lg, bottom: 0, trailing: Tokens.Space.lg))
 
+                    if !allDayEventsToday.isEmpty {
+                        AllDayEventStrip(events: allDayEventsToday) { event in
+                            detailEvent = event
+                        }
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: Tokens.Space.sm, leading: Tokens.Space.lg, bottom: 0, trailing: Tokens.Space.lg))
+                    }
+
                     StatStrip(
                         todayCount: timedTasks.count + unscheduledTasks.count,
-                        eventsCount: 0,  // Calendar events arrive in Phase 3
+                        eventsCount: timedEventsToday.count + allDayEventsToday.count,
                         carriedCount: carriedTasks.count
                     )
                     .listRowBackground(Color.clear)
@@ -42,13 +69,8 @@ struct TodayView: View {
                     )
                 }
 
-                if !timedTasks.isEmpty {
-                    taskSection(
-                        title: "Today",
-                        count: timedTasks.count,
-                        accent: Tokens.Color.accent,
-                        tasks: timedTasks
-                    )
+                if !timelineItems.isEmpty {
+                    timelineSection
                 }
 
                 if !unscheduledTasks.isEmpty {
@@ -69,7 +91,7 @@ struct TodayView: View {
                     )
                 }
 
-                if carriedTasks.isEmpty && timedTasks.isEmpty && unscheduledTasks.isEmpty && completedToday.isEmpty {
+                if carriedTasks.isEmpty && timelineItems.isEmpty && unscheduledTasks.isEmpty && completedToday.isEmpty {
                     emptyStateRow
                 }
 
@@ -83,7 +105,7 @@ struct TodayView: View {
             .scrollContentBackground(.hidden)
             .scrollIndicators(.hidden)
             .refreshable {
-                try? await _Concurrency.Task.sleep(for: .milliseconds(600))
+                await calendarService.fetchAllEvents()
                 now = .now
                 Haptics.tap()
             }
@@ -99,6 +121,71 @@ struct TodayView: View {
         .sheet(item: $detailTask) { task in
             TaskDetailSheet(task: task)
         }
+        .sheet(item: $detailEvent) { event in
+            EventDetailSheet(event: event)
+        }
+    }
+
+    // MARK: Mixed timeline (tasks + events, sorted by time)
+
+    enum TimelineItem: Identifiable {
+        case task(TaskItem)
+        case event(CachedEvent)
+
+        var id: String {
+            switch self {
+            case .task(let t): return "task-\(t.id)"
+            case .event(let e): return "event-\(e.id)"
+            }
+        }
+
+        var sortKey: Date {
+            switch self {
+            case .task(let t): return t.dueDate ?? .distantFuture
+            case .event(let e): return e.start
+            }
+        }
+    }
+
+    private var timelineItems: [TimelineItem] {
+        let tasks = timedTasks.map { TimelineItem.task($0) }
+        let events = timedEventsToday.map { TimelineItem.event($0) }
+        return (tasks + events).sorted { $0.sortKey < $1.sortKey }
+    }
+
+    @ViewBuilder
+    private var timelineSection: some View {
+        Section {
+            ForEach(Array(timelineItems.enumerated()), id: \.element.id) { index, item in
+                Group {
+                    switch item {
+                    case .task(let task):
+                        TaskRowActionContainer(task: task) {
+                            TaskRow(
+                                task: task,
+                                onTitleTap: { detailTask = task }
+                            )
+                        }
+                    case .event(let event):
+                        EventRow(event: event) { detailEvent = event }
+                    }
+                }
+                .opacity(hasAppeared ? 1 : 0)
+                .offset(y: hasAppeared ? 0 : 12)
+                .animation(
+                    .bouncy(duration: 0.5).delay(Double(index) * 0.05),
+                    value: hasAppeared
+                )
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 4, leading: Tokens.Space.lg, bottom: 4, trailing: Tokens.Space.lg))
+            }
+        } header: {
+            GroupHeader(title: "Today", count: timelineItems.count, accent: Tokens.Color.accent)
+                .padding(.bottom, 4)
+                .textCase(nil)
+        }
+        .listSectionSeparator(.hidden)
     }
 
     // MARK: Section builder
@@ -194,5 +281,55 @@ struct TodayView: View {
                 && Calendar.current.isDateInToday(task.completedAt!)
         }
         .sorted(by: { ($0.completedAt ?? .distantPast) > ($1.completedAt ?? .distantPast) })
+    }
+
+    // MARK: Event buckets
+
+    private var timedEventsToday: [CachedEvent] {
+        allEvents.filter { event in
+            !event.isAllDay && Calendar.current.isDateInToday(event.start)
+        }
+    }
+
+    private var allDayEventsToday: [CachedEvent] {
+        allEvents.filter { event in
+            event.isAllDay && Calendar.current.isDateInToday(event.start)
+        }
+    }
+
+    private var showsReconnectBanner: Bool {
+        if case .tokenExpired = calendarService.lastError { return true }
+        return false
+    }
+}
+
+// MARK: - All-day event strip
+
+struct AllDayEventStrip: View {
+    let events: [CachedEvent]
+    var onTap: (CachedEvent) -> Void
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: Tokens.Space.sm) {
+                ForEach(events) { event in
+                    Button { onTap(event) } label: {
+                        HStack(spacing: 6) {
+                            Circle().fill(Tokens.Color.teal).frame(width: 6, height: 6)
+                            Text(event.title)
+                                .font(Tokens.Font.chip)
+                                .foregroundStyle(Tokens.Color.text)
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Tokens.Color.teal.opacity(0.12))
+                        .clipShape(Capsule())
+                        .overlay(Capsule().stroke(Tokens.Color.teal.opacity(0.3), lineWidth: 0.5))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
     }
 }

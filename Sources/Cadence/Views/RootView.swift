@@ -66,7 +66,7 @@ struct RootView: View {
     private var content: some View {
         switch selectedTab {
         case .today:
-            TodayView()
+            TodayView(onRequestSettingsTab: { selectedTab = .you })
         case .week:
             WeekView()
         case .lists:
