@@ -10,6 +10,7 @@ struct RootView: View {
 
     @AppStorage(PrefsKey.hasOnboarded) private var hasOnboarded: Bool = false
 
+    @EnvironmentObject private var notifications: NotificationManager
     @Query private var allLists: [TaskList]
     @Query private var allTasks: [TaskItem]
 
@@ -36,6 +37,18 @@ struct RootView: View {
         }
         .onAppear {
             applyLaunchArgsOnce()
+        }
+        .onChange(of: notifications.deepLinkTaskID) { _, newValue in
+            guard let id = newValue,
+                  let task = allTasks.first(where: { $0.id == id })
+            else { return }
+            pendingTaskDetail = task
+            notifications.deepLinkTaskID = nil
+        }
+        .onChange(of: notifications.deepLinkRequestedTab) { _, newValue in
+            guard let tab = newValue else { return }
+            selectedTab = tab
+            notifications.deepLinkRequestedTab = nil
         }
     }
 

@@ -49,8 +49,10 @@ struct TaskRowActionContainer<Content: View>: View {
                 presenting: deletingTask
             ) { task in
                 Button("Delete", role: .destructive) {
+                    let taskID = task.id
                     modelContext.delete(task)
                     try? modelContext.save()
+                    Task { await NotificationManager.shared.cancelReminders(forTaskID: taskID) }
                     deletingTask = nil
                 }
                 Button("Cancel", role: .cancel) {
@@ -62,8 +64,9 @@ struct TaskRowActionContainer<Content: View>: View {
     }
 
     private func toggleComplete() {
+        let wasCompleted = task.status == .completed
         withAnimation(Tokens.Motion.spring) {
-            if task.status == .completed {
+            if wasCompleted {
                 task.status = .open
                 task.completedAt = nil
             } else {
@@ -73,5 +76,14 @@ struct TaskRowActionContainer<Content: View>: View {
             }
         }
         try? modelContext.save()
+        Task {
+            if wasCompleted {
+                // Re-opened — reschedule pending reminders.
+                await NotificationManager.shared.scheduleReminders(for: task)
+            } else {
+                // Just completed — cancel pending reminders.
+                await NotificationManager.shared.cancelReminders(forTaskID: task.id)
+            }
+        }
     }
 }

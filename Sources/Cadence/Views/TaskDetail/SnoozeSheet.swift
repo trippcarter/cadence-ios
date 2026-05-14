@@ -153,6 +153,7 @@ struct SnoozeSheet: View {
             task.status = .snoozed
         }
         try? modelContext.save()
+        Task { await NotificationManager.shared.cancelReminders(forTaskID: task.id) }
         dismiss()
     }
 

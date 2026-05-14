@@ -446,13 +446,16 @@ struct TaskDetailSheet: View {
 
     private func deleteTask() {
         Haptics.warning()
+        let taskID = task.id
         modelContext.delete(task)
         try? modelContext.save()
+        Task { await NotificationManager.shared.cancelReminders(forTaskID: taskID) }
         dismiss()
     }
 
     private func persist() {
         try? modelContext.save()
+        Task { await NotificationManager.shared.scheduleReminders(for: task) }
     }
 
     private func dismissAndSave() {

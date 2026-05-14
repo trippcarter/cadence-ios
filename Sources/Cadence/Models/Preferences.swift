@@ -4,11 +4,12 @@ import SwiftUI
 /// survive launches and (eventually) sync via NSUbiquitousKeyValueStore in
 /// Phase 2.
 enum PrefsKey {
-    static let hasOnboarded     = "hasOnboarded"
-    static let dailyBriefHour   = "dailyBriefHour"
-    static let dailyBriefMinute = "dailyBriefMinute"
-    static let rolloverPolicy   = "defaultRolloverPolicy"   // RolloverPolicy.rawValue
-    static let themeChoice      = "themeChoice"             // ThemeChoice.rawValue
+    static let hasOnboarded         = "hasOnboarded"
+    static let dailyBriefHour       = "dailyBriefHour"
+    static let dailyBriefMinute     = "dailyBriefMinute"
+    static let rolloverPolicy       = "defaultRolloverPolicy"   // RolloverPolicy.rawValue
+    static let themeChoice          = "themeChoice"             // ThemeChoice.rawValue
+    static let notificationsEnabled = "notificationsEnabled"    // master switch
 }
 
 /// Three-way theme picker. Applied at the app root via .preferredColorScheme.

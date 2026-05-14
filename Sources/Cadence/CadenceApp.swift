@@ -6,6 +6,8 @@ struct CadenceApp: App {
 
     let container: ModelContainer
     @AppStorage(PrefsKey.themeChoice) private var themeRaw: String = ThemeChoice.dark.rawValue
+    @Environment(\.scenePhase) private var scenePhase
+    @StateObject private var notifications = NotificationManager.shared
 
     init() {
         do {
@@ -27,7 +29,19 @@ struct CadenceApp: App {
         WindowGroup {
             RootView()
                 .preferredColorScheme(ThemeChoice(rawValue: themeRaw)?.colorScheme ?? .dark)
+                .environmentObject(notifications)
+                .task {
+                    await notifications.refreshAuthorizationStatus()
+                }
         }
         .modelContainer(container)
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                Task {
+                    await notifications.refreshAuthorizationStatus()
+                    await notifications.rescheduleEverything(context: container.mainContext)
+                }
+            }
+        }
     }
 }

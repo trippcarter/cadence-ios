@@ -1,12 +1,19 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct SettingsView: View {
-    @AppStorage(PrefsKey.dailyBriefHour)   private var briefHour: Int = 7
-    @AppStorage(PrefsKey.dailyBriefMinute) private var briefMinute: Int = 30
-    @AppStorage(PrefsKey.rolloverPolicy)   private var rolloverRaw: String = RolloverPolicy.on.rawValue
-    @AppStorage(PrefsKey.themeChoice)      private var themeRaw: String = ThemeChoice.dark.rawValue
+    @AppStorage(PrefsKey.dailyBriefHour)       private var briefHour: Int = 7
+    @AppStorage(PrefsKey.dailyBriefMinute)     private var briefMinute: Int = 30
+    @AppStorage(PrefsKey.rolloverPolicy)       private var rolloverRaw: String = RolloverPolicy.on.rawValue
+    @AppStorage(PrefsKey.themeChoice)          private var themeRaw: String = ThemeChoice.dark.rawValue
+    @AppStorage(PrefsKey.notificationsEnabled) private var notifsEnabled: Bool = true
 
-    @State private var briefTime: Date = .now
+    @State private var testFeedback: String?
+
+    @EnvironmentObject private var notifications: NotificationManager
+    @Environment(\.modelContext) private var modelContext
 
     var body: some View {
         ZStack {
@@ -26,11 +33,23 @@ struct SettingsView: View {
                     rowKeyValue("Build", value: buildNumber)
                 }
 
+                section(title: "Notifications") {
+                    notificationsToggleRow
+                    Divider().background(Tokens.Color.borderSoft)
+                    notificationsStatusRow
+                    Divider().background(Tokens.Color.borderSoft)
+                    sendTestRow
+                }
+
                 section(title: "Daily brief") {
                     HStack {
                         rowLabel(icon: "sun.max", text: "Time of day")
                         Spacer()
-                        DatePicker("", selection: $briefTime, displayedComponents: .hourAndMinute)
+                        DatePicker(
+                            "",
+                            selection: briefTimeBinding,
+                            displayedComponents: .hourAndMinute
+                        )
                             .labelsHidden()
                             .tint(Tokens.Color.accent)
                     }
@@ -96,12 +115,16 @@ struct SettingsView: View {
             .scrollIndicators(.hidden)
         }
         .onAppear {
-            briefTime = Calendar.current.date(bySettingHour: briefHour, minute: briefMinute, second: 0, of: .now) ?? .now
+            Task { await notifications.refreshAuthorizationStatus() }
         }
-        .onChange(of: briefTime) { _, newValue in
-            let comps = Calendar.current.dateComponents([.hour, .minute], from: newValue)
-            briefHour = comps.hour ?? 7
-            briefMinute = comps.minute ?? 30
+        .onChange(of: notifsEnabled) { _, newValue in
+            Task {
+                if newValue {
+                    await notifications.rescheduleEverything(context: modelContext, requestIfNeeded: true)
+                } else {
+                    await notifications.cancelAll()
+                }
+            }
         }
     }
 
@@ -206,6 +229,160 @@ struct SettingsView: View {
         .padding(.horizontal, Tokens.Space.lg)
         .padding(.vertical, Tokens.Space.md)
     }
+
+    // MARK: Daily brief binding
+
+    /// DatePicker bound directly to the two @AppStorage components so its setter
+    /// only fires on real user interaction — never on initial render.
+    private var briefTimeBinding: Binding<Date> {
+        Binding(
+            get: {
+                Calendar.current.date(bySettingHour: briefHour, minute: briefMinute, second: 0, of: .now) ?? .now
+            },
+            set: { newValue in
+                let comps = Calendar.current.dateComponents([.hour, .minute], from: newValue)
+                briefHour = comps.hour ?? 7
+                briefMinute = comps.minute ?? 30
+                Task { await notifications.scheduleDailyBrief(context: modelContext) }
+            }
+        )
+    }
+
+    // MARK: Notifications rows
+
+    private var notificationsToggleRow: some View {
+        HStack {
+            rowLabel(icon: "bell.fill", text: "Reminders enabled")
+            Spacer()
+            Toggle("", isOn: $notifsEnabled)
+                .tint(Tokens.Color.accent)
+                .labelsHidden()
+        }
+        .padding(.horizontal, Tokens.Space.lg)
+        .padding(.vertical, Tokens.Space.md)
+    }
+
+    private var notificationsStatusRow: some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.sm) {
+            HStack(spacing: 8) {
+                Image(systemName: statusIcon)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(statusColor)
+                    .frame(width: 18)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(statusTitle)
+                        .font(Tokens.Font.bodyEmphasis)
+                        .foregroundStyle(Tokens.Color.text)
+                    Text(statusSubtitle)
+                        .font(Tokens.Font.caption)
+                        .foregroundStyle(Tokens.Color.text3)
+                }
+                Spacer()
+            }
+            if notifications.authorizationStatus == .denied {
+                Button {
+                    openAppSettings()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.up.right.square")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text("Open System Settings")
+                            .font(Tokens.Font.chip)
+                    }
+                    .padding(.horizontal, Tokens.Space.md)
+                    .padding(.vertical, 7)
+                    .background(Tokens.Color.accent.opacity(0.18))
+                    .foregroundStyle(Tokens.Color.accent2)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, Tokens.Space.lg)
+        .padding(.vertical, Tokens.Space.md)
+    }
+
+    private var sendTestRow: some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.sm) {
+            HStack {
+                rowLabel(icon: "paperplane.fill", text: "Send a test")
+                Spacer()
+                Button {
+                    Haptics.tap()
+                    Task {
+                        let ok = await notifications.sendTestInFiveSeconds()
+                        testFeedback = ok ? "Test scheduled · arrives in 5 seconds" : "Couldn't schedule — check permission."
+                    }
+                } label: {
+                    Text("Send")
+                        .font(Tokens.Font.chip)
+                        .padding(.horizontal, Tokens.Space.md)
+                        .padding(.vertical, 7)
+                        .background(Tokens.Color.accent.opacity(0.20))
+                        .foregroundStyle(Tokens.Color.accent2)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(!notifsEnabled)
+            }
+            if let testFeedback {
+                Text(testFeedback)
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Tokens.Color.text3)
+            }
+        }
+        .padding(.horizontal, Tokens.Space.lg)
+        .padding(.vertical, Tokens.Space.md)
+    }
+
+    private var statusIcon: String {
+        switch notifications.authorizationStatus {
+        case .authorized, .provisional, .ephemeral: return "checkmark.seal.fill"
+        case .denied: return "xmark.seal.fill"
+        case .notDetermined: return "questionmark.circle"
+        @unknown default: return "questionmark.circle"
+        }
+    }
+
+    private var statusColor: Color {
+        switch notifications.authorizationStatus {
+        case .authorized, .provisional, .ephemeral: return Tokens.Color.mint
+        case .denied: return Tokens.Color.rose
+        case .notDetermined: return Tokens.Color.text3
+        @unknown default: return Tokens.Color.text3
+        }
+    }
+
+    private var statusTitle: String {
+        switch notifications.authorizationStatus {
+        case .authorized, .provisional, .ephemeral: return "Notifications enabled"
+        case .denied: return "Notifications blocked"
+        case .notDetermined: return "Permission not granted yet"
+        @unknown default: return "Unknown status"
+        }
+    }
+
+    private var statusSubtitle: String {
+        switch notifications.authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+            return "Reminders, daily brief, and shared-list pings."
+        case .denied:
+            return "Enable in System Settings → Cadence."
+        case .notDetermined:
+            return "iOS will ask the first time a reminder is set."
+        @unknown default:
+            return ""
+        }
+    }
+
+    #if canImport(UIKit)
+    private func openAppSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
+    }
+    #else
+    private func openAppSettings() {}
+    #endif
 
     // MARK: App info
 
