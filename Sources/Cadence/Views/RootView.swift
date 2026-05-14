@@ -68,7 +68,7 @@ struct RootView: View {
         case .today:
             TodayView(onRequestSettingsTab: { selectedTab = .you })
         case .week:
-            WeekView()
+            CalendarView()
         case .lists:
             NavigationStack(path: $listsPath) {
                 ListsView()

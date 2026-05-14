@@ -136,16 +136,28 @@ struct AddTaskSheet: View {
               let list = lists.first(where: { $0.persistentModelID == listID })
         else { return }
 
+        // Auto-mirror: per-user opt-in for new tasks that have a specific time.
+        let autoMirror = UserDefaults.standard.bool(forKey: PrefsKey.autoMirrorTimeBlocked)
+        let defaultCalID = UserDefaults.standard.string(forKey: PrefsKey.defaultMirrorCalendarID)
+        let shouldMirror = autoMirror
+            && hasDueDate && hasTime
+            && defaultCalID != nil
+
         let task = TaskItem(
             title: title.trimmingCharacters(in: .whitespacesAndNewlines),
             dueDate: hasDueDate ? dueDate : nil,
             allDay: hasDueDate ? !hasTime : false,
             priority: priority,
-            list: list
+            list: list,
+            isTimeBlocked: shouldMirror,
+            mirrorCalendarId: shouldMirror ? defaultCalID : nil
         )
         modelContext.insert(task)
         try? modelContext.save()
         Haptics.success()
+        Task {
+            await GoogleCalendarService.shared.syncTaskToCalendar(task)
+        }
         WidgetReloader.reload()
         dismiss()
     }

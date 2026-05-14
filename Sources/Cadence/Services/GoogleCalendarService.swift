@@ -52,6 +52,25 @@ final class GoogleCalendarService: ObservableObject {
         }
     }
 
+    /// True if the account's persisted auth state lacks the new
+    /// `calendar.events` scope — meaning the user signed in before Phase 7a
+    /// and needs to reconnect for write access. Reads the granted scope from
+    /// the most recent token response stored in Keychain.
+    func needsReconnect(for account: ConnectedAccount) -> Bool {
+        #if canImport(AppAuth)
+        guard let state = KeychainStore.loadAuthState(account: account.keychainID) else {
+            return false
+        }
+        // `lastTokenResponse?.scope` is the space-separated string of scopes
+        // that Google actually granted. The OAuth request scopes can differ
+        // from granted, so we must inspect the response.
+        let granted = state.lastTokenResponse?.scope ?? state.lastAuthorizationResponse.scope ?? ""
+        return !granted.contains("calendar.events")
+        #else
+        return false
+        #endif
+    }
+
     /// Forward redirects from `.onOpenURL` to AppAuth's in-flight session.
     /// Returns true when the URL belonged to a pending Cadence OAuth flow.
     @discardableResult
@@ -304,6 +323,156 @@ final class GoogleCalendarService: ObservableObject {
         #else
         throw GoogleCalendarError.notConfigured
         #endif
+    }
+
+    // MARK: Two-way sync (Phase 7a)
+
+    /// Reconciles a task's mirror state with Google Calendar in one call.
+    /// Decides whether to POST (new mirror), PATCH (update), or DELETE based
+    /// on the task's current state vs. what's stored.
+    ///
+    /// Call after every persist on a task. Safe to call when no mirror state
+    /// exists — short-circuits cleanly.
+    func syncTaskToCalendar(_ task: TaskItem) async {
+        #if canImport(AppAuth)
+        // Find the Google account that owns this calendar.
+        let accounts = (try? context.fetch(FetchDescriptor<ConnectedAccount>())) ?? []
+        let googleAccount = accounts.first(where: { $0.provider == "google" })
+        guard let account = googleAccount else { return }
+
+        // Three cases:
+        // 1. Mirror exists but should be deleted (toggled off, time removed, no time-block).
+        // 2. Mirror exists and should be updated.
+        // 3. No mirror exists but should be created.
+        let shouldHaveMirror = task.isTimeBlocked
+            && task.dueDate != nil
+            && !task.allDay
+            && task.mirrorCalendarId != nil
+
+        do {
+            if let eventID = task.mirroredEventId, let calID = task.mirrorCalendarId {
+                if !shouldHaveMirror {
+                    try await deleteMirroredEvent(eventID: eventID, calendarID: calID, account: account)
+                    task.mirroredEventId = nil
+                    task.lastSyncedStart = nil
+                    try context.save()
+                } else {
+                    try await updateMirroredEvent(task: task, account: account)
+                    task.lastSyncedStart = task.dueDate
+                    try context.save()
+                }
+            } else if shouldHaveMirror, let calID = task.mirrorCalendarId, let due = task.dueDate {
+                let newEventID = try await createMirroredEvent(task: task, calendarID: calID, account: account)
+                task.mirroredEventId = newEventID
+                task.lastSyncedStart = due
+                try context.save()
+            }
+        } catch {
+            // Surface but don't crash — sync failures shouldn't block local task edits.
+            lastError = .underlying(error)
+        }
+        #endif
+    }
+
+    /// Called when a task is deleted from Cadence — drops its mirrored event.
+    func deleteMirrorIfNeeded(taskID: UUID, eventID: String?, calendarID: String?) async {
+        guard let eventID, let calendarID else { return }
+        let accounts = (try? context.fetch(FetchDescriptor<ConnectedAccount>())) ?? []
+        guard let account = accounts.first(where: { $0.provider == "google" }) else { return }
+        try? await deleteMirroredEvent(eventID: eventID, calendarID: calendarID, account: account)
+    }
+
+    private func createMirroredEvent(task: TaskItem, calendarID: String, account: ConnectedAccount) async throws -> String {
+        let token = try await freshAccessToken(for: account)
+        guard let due = task.dueDate else { throw GoogleCalendarError.invalidResponse }
+        let end = due.addingTimeInterval(task.mirrorDurationSeconds)
+
+        let body = eventBody(task: task, start: due, end: end)
+
+        let url = URL(string: "https://www.googleapis.com/calendar/v3/calendars/\(percentEncoded(calendarID))/events")!
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await URLSession.shared.data(for: req)
+        guard let http = response as? HTTPURLResponse else { throw GoogleCalendarError.invalidResponse }
+        guard 200..<300 ~= http.statusCode else {
+            if http.statusCode == 401 { throw GoogleCalendarError.tokenExpired("Google rejected the token.") }
+            throw GoogleCalendarError.http(http.statusCode)
+        }
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        guard let id = json?["id"] as? String else { throw GoogleCalendarError.invalidResponse }
+        return id
+    }
+
+    private func updateMirroredEvent(task: TaskItem, account: ConnectedAccount) async throws {
+        guard let calendarID = task.mirrorCalendarId,
+              let eventID = task.mirroredEventId,
+              let due = task.dueDate
+        else { return }
+        let token = try await freshAccessToken(for: account)
+        let end = due.addingTimeInterval(task.mirrorDurationSeconds)
+        let body = eventBody(task: task, start: due, end: end)
+
+        let url = URL(string: "https://www.googleapis.com/calendar/v3/calendars/\(percentEncoded(calendarID))/events/\(percentEncoded(eventID))")!
+        var req = URLRequest(url: url)
+        req.httpMethod = "PATCH"
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (_, response) = try await URLSession.shared.data(for: req)
+        guard let http = response as? HTTPURLResponse else { throw GoogleCalendarError.invalidResponse }
+        // 404 is acceptable here — event was deleted externally. We clear our
+        // mirror ID at the call site if needed.
+        guard 200..<300 ~= http.statusCode || http.statusCode == 404 else {
+            if http.statusCode == 401 { throw GoogleCalendarError.tokenExpired("Google rejected the token.") }
+            throw GoogleCalendarError.http(http.statusCode)
+        }
+    }
+
+    private func deleteMirroredEvent(eventID: String, calendarID: String, account: ConnectedAccount) async throws {
+        let token = try await freshAccessToken(for: account)
+        let url = URL(string: "https://www.googleapis.com/calendar/v3/calendars/\(percentEncoded(calendarID))/events/\(percentEncoded(eventID))")!
+        var req = URLRequest(url: url)
+        req.httpMethod = "DELETE"
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (_, response) = try await URLSession.shared.data(for: req)
+        guard let http = response as? HTTPURLResponse else { return }
+        // 200/204 success; 404 = already gone; 410 = gone. All fine.
+        if http.statusCode == 401 {
+            throw GoogleCalendarError.tokenExpired("Google rejected the token.")
+        }
+    }
+
+    /// Build the JSON body Google expects for events.insert/patch.
+    private func eventBody(task: TaskItem, start: Date, end: Date) -> [String: Any] {
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime]
+        let completed = task.status == .completed
+
+        // Marker so we (or anyone) can identify Cadence-origin events.
+        var description = ""
+        if let notes = task.notes, !notes.isEmpty {
+            description = notes + "\n\n"
+        }
+        if completed, let completedAt = task.completedAt {
+            description += "Completed in Cadence: \(completedAt.formatted(.dateTime.month().day().hour().minute()))\n"
+        }
+        description += "—\nCreated by Cadence · taskId: \(task.id.uuidString)"
+
+        return [
+            "summary": completed ? "✓ \(task.title)" : task.title,
+            "description": description,
+            "start": ["dateTime": iso.string(from: start)],
+            "end":   ["dateTime": iso.string(from: end)],
+            "source": [
+                "title": "Cadence",
+                "url": "https://github.com/trippcarter/cadence-ios"
+            ]
+        ]
     }
 
     // MARK: Token plumbing

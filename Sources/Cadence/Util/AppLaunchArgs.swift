@@ -32,6 +32,10 @@ enum AppLaunchArgs {
     /// dimensions for clean screenshots.
     static var widgetPreview: String? { value(for: "--widget-preview") }
 
+    /// `--calendar-mode=day|week|month|year` — preselects the Calendar tab's
+    /// mode picker. Used by the screenshot pipeline.
+    static var calendarMode: String? { value(for: "--calendar-mode") }
+
     private static func value(for key: String) -> String? {
         for arg in CommandLine.arguments {
             if arg.hasPrefix("\(key)=") {

@@ -27,9 +27,14 @@ enum GoogleOAuthConfig {
         URL(string: "\(reversedClientID):/oauthredirect")!
     }
 
-    /// Read-only Calendar scope (per architecture doc §6.1; we expand to
-    /// events read/write in v3 for two-way sync).
-    static let scope = "https://www.googleapis.com/auth/calendar.readonly"
+    /// Read + write events scope (Phase 7a — two-way sync). This single scope
+    /// covers both calendarList listing AND event CRUD per Google's API docs.
+    static let scope = "https://www.googleapis.com/auth/calendar.events"
+
+    /// The legacy read-only scope previous builds requested. Used at runtime
+    /// to detect when an existing account is on the old scope and needs to
+    /// reconnect for write access.
+    static let legacyReadOnlyScope = "https://www.googleapis.com/auth/calendar.readonly"
 
     /// Google's discovery doc holds all OAuth endpoints — preferred over
     /// hard-coding token / auth URLs.

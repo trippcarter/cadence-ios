@@ -51,6 +51,22 @@ final class TaskItem {
     var createdBy: String       // CKRecord user ID (string)
     var completedBy: String?
 
+    // Two-way calendar sync (Phase 7a)
+    /// When true and dueDate has a specific time, the task is mirrored to
+    /// `mirrorCalendarId` as a Google Calendar event.
+    var isTimeBlocked: Bool = false
+    /// Google calendar ID to mirror to. nil when not mirroring.
+    var mirrorCalendarId: String?
+    /// Google event ID returned from the most recent mirror create — used
+    /// for subsequent PATCH/DELETE operations.
+    var mirroredEventId: String?
+    /// Duration in seconds for the mirrored event. Default 1800 (30 min).
+    var mirrorDurationSeconds: TimeInterval = 1800
+    /// Snapshot of the start time the last time we synced. Used to detect
+    /// when the user edited the event directly in Google Calendar (lets us
+    /// show the "modified in Google" badge).
+    var lastSyncedStart: Date?
+
     // Relationships
     var list: TaskList?
     var parent: TaskItem?
@@ -74,7 +90,10 @@ final class TaskItem {
         createdBy: String = "",
         completedBy: String? = nil,
         list: TaskList? = nil,
-        parent: TaskItem? = nil
+        parent: TaskItem? = nil,
+        isTimeBlocked: Bool = false,
+        mirrorCalendarId: String? = nil,
+        mirrorDurationSeconds: TimeInterval = 1800
     ) {
         self.id = id
         self.title = title
@@ -92,6 +111,9 @@ final class TaskItem {
         self.completedBy = completedBy
         self.list = list
         self.parent = parent
+        self.isTimeBlocked = isTimeBlocked
+        self.mirrorCalendarId = mirrorCalendarId
+        self.mirrorDurationSeconds = mirrorDurationSeconds
     }
 
     // MARK: Computed helpers
@@ -107,6 +129,11 @@ final class TaskItem {
     var isDueToday: Bool {
         guard let due = dueDate else { return false }
         return Calendar.current.isDateInToday(due)
+    }
+
+    /// Whether this task is currently mirrored to a Google Calendar event.
+    var hasActiveMirror: Bool {
+        isTimeBlocked && mirroredEventId != nil && mirrorCalendarId != nil
     }
 }
 

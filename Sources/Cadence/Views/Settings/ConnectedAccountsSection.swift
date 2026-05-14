@@ -14,6 +14,8 @@ struct ConnectedAccountsSection: View {
     @ObservedObject private var service = GoogleCalendarService.shared
 
     @State private var feedback: String?
+    @AppStorage(PrefsKey.defaultMirrorCalendarID) private var defaultMirrorCalendarID: String = ""
+    @AppStorage(PrefsKey.autoMirrorTimeBlocked) private var autoMirror: Bool = false
 
     private var googleAccount: ConnectedAccount? {
         accounts.first(where: { $0.provider == "google" })
@@ -22,9 +24,15 @@ struct ConnectedAccountsSection: View {
     var body: some View {
         VStack(spacing: 0) {
             if let account = googleAccount {
+                if service.needsReconnect(for: account) {
+                    reconnectBanner(account: account)
+                    Divider().background(Tokens.Color.borderSoft)
+                }
                 connectedHeader(account: account)
                 Divider().background(Tokens.Color.borderSoft)
                 calendarsRow(account: account)
+                Divider().background(Tokens.Color.borderSoft)
+                syncPrefsRow(account: account)
                 Divider().background(Tokens.Color.borderSoft)
                 actionsRow(account: account)
             } else {
@@ -142,6 +150,125 @@ struct ConnectedAccountsSection: View {
         }
         .padding(.horizontal, Tokens.Space.lg)
         .padding(.vertical, Tokens.Space.md)
+    }
+
+    // MARK: Reconnect banner (scope upgrade)
+
+    private func reconnectBanner(account: ConnectedAccount) -> some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.sm) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.amber)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Reconnect for two-way sync")
+                        .font(Tokens.Font.bodyEmphasis)
+                        .foregroundStyle(Tokens.Color.text)
+                    Text("Cadence now writes time-blocked tasks back to Google Calendar. Reconnect to grant write access.")
+                        .font(Tokens.Font.caption)
+                        .foregroundStyle(Tokens.Color.text3)
+                }
+            }
+            Button {
+                reconnect(account: account)
+            } label: {
+                Text("Reconnect now")
+                    .font(Tokens.Font.chip)
+                    .padding(.horizontal, Tokens.Space.md)
+                    .padding(.vertical, 7)
+                    .background(Tokens.Color.amber.opacity(0.20))
+                    .foregroundStyle(Tokens.Color.amber)
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, Tokens.Space.lg)
+        .padding(.vertical, Tokens.Space.md)
+        .background(Tokens.Color.amber.opacity(0.06))
+    }
+
+    // MARK: Sync prefs (default calendar + auto-mirror)
+
+    private func syncPrefsRow(account: ConnectedAccount) -> some View {
+        let enabledCalendars = account.calendars
+            .filter { $0.isEnabled }
+            .sorted { $0.name < $1.name }
+        return VStack(alignment: .leading, spacing: Tokens.Space.md) {
+            HStack(spacing: 8) {
+                Image(systemName: "calendar.badge.clock")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.text3)
+                    .frame(width: 18)
+                Text("Two-way sync")
+                    .font(Tokens.Font.bodyEmphasis)
+                    .foregroundStyle(Tokens.Color.text)
+                Spacer()
+            }
+            HStack {
+                Text("Default destination calendar")
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Tokens.Color.text3)
+                Spacer()
+                Menu {
+                    Button {
+                        defaultMirrorCalendarID = ""
+                    } label: {
+                        Label("None — ask each time", systemImage: defaultMirrorCalendarID.isEmpty ? "checkmark" : "circle")
+                    }
+                    Divider()
+                    ForEach(enabledCalendars) { cal in
+                        Button {
+                            defaultMirrorCalendarID = cal.googleCalendarID
+                        } label: {
+                            Label(cal.name, systemImage: cal.googleCalendarID == defaultMirrorCalendarID ? "checkmark" : "calendar")
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(defaultCalendarLabel(among: enabledCalendars))
+                            .font(Tokens.Font.chip)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 9, weight: .semibold))
+                    }
+                    .padding(.horizontal, Tokens.Space.md)
+                    .padding(.vertical, 6)
+                    .background(Tokens.Color.teal.opacity(0.18))
+                    .foregroundStyle(Tokens.Color.teal)
+                    .clipShape(Capsule())
+                }
+            }
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Auto-block new timed tasks")
+                        .font(Tokens.Font.body)
+                        .foregroundStyle(Tokens.Color.text)
+                    Text("Mirror new tasks with specific times automatically.")
+                        .font(Tokens.Font.caption)
+                        .foregroundStyle(Tokens.Color.text3)
+                }
+                Spacer()
+                Toggle("", isOn: $autoMirror)
+                    .tint(Tokens.Color.teal)
+                    .labelsHidden()
+                    .disabled(defaultMirrorCalendarID.isEmpty)
+            }
+        }
+        .padding(.horizontal, Tokens.Space.lg)
+        .padding(.vertical, Tokens.Space.md)
+    }
+
+    private func defaultCalendarLabel(among options: [CalendarConfig]) -> String {
+        if defaultMirrorCalendarID.isEmpty { return "Ask each time" }
+        return options.first(where: { $0.googleCalendarID == defaultMirrorCalendarID })?.name ?? "Pick…"
+    }
+
+    private func reconnect(account: ConnectedAccount) {
+        Task {
+            await service.signOut(account: account)
+            // Surface a tiny prompt to re-tap Connect — clean separation
+            // from sign-out makes the flow predictable.
+            feedback = "Disconnected. Tap Connect Google Calendar to re-link with write access."
+        }
     }
 
     // MARK: Disconnected state

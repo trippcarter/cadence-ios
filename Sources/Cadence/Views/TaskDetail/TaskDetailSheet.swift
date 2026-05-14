@@ -10,6 +10,17 @@ struct TaskDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: [SortDescriptor(\TaskList.sortOrder, order: .forward)])
     private var allLists: [TaskList]
+    @Query private var allAccounts: [ConnectedAccount]
+    @Query private var cachedEvents: [CachedEvent]
+
+    /// All calendars the user has enabled across connected Google accounts —
+    /// candidates for time-block mirroring.
+    private var mirrorableCalendars: [CalendarConfig] {
+        allAccounts
+            .filter { $0.provider == "google" }
+            .flatMap { $0.calendars }
+            .sorted { $0.name < $1.name }
+    }
 
     @State private var hasDueDate: Bool = false
     @State private var hasTime: Bool = false
@@ -23,6 +34,9 @@ struct TaskDetailSheet: View {
                 Tokens.Color.bg.ignoresSafeArea()
                 ScrollView {
                     VStack(alignment: .leading, spacing: Tokens.Space.xl) {
+                        if let newStart = divergedStart {
+                            divergedBanner(newStart: newStart)
+                        }
                         titleBlock
                         chipsRow
                         notesBlock
@@ -90,6 +104,52 @@ struct TaskDetailSheet: View {
             persist()
         }
         .interactiveDismissDisabled(false)
+    }
+
+    // MARK: Divergence banner
+
+    private var divergedStart: Date? {
+        MirrorDivergence.divergedStart(for: task, among: cachedEvents)
+    }
+
+    private func divergedBanner(newStart: Date) -> some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.sm) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "exclamationmark.arrow.triangle.2.circlepath")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.amber)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Modified in Google Calendar")
+                        .font(Tokens.Font.bodyEmphasis)
+                        .foregroundStyle(Tokens.Color.text)
+                    Text("This event now starts at \(newStart, format: .dateTime.weekday(.abbreviated).hour().minute()). Adopt the change to update the task too.")
+                        .font(Tokens.Font.caption)
+                        .foregroundStyle(Tokens.Color.text3)
+                }
+            }
+            Button {
+                task.dueDate = newStart
+                task.lastSyncedStart = newStart
+                persist()
+                Haptics.success()
+            } label: {
+                Text("Adopt new time")
+                    .font(Tokens.Font.chip)
+                    .padding(.horizontal, Tokens.Space.md)
+                    .padding(.vertical, 7)
+                    .background(Tokens.Color.amber.opacity(0.20))
+                    .foregroundStyle(Tokens.Color.amber)
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(Tokens.Space.lg)
+        .background(Tokens.Color.amber.opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous)
+                .stroke(Tokens.Color.amber.opacity(0.4), lineWidth: 0.5)
+        )
     }
 
     // MARK: Title
@@ -179,6 +239,8 @@ struct TaskDetailSheet: View {
                 priorityRow
                 Divider().background(Tokens.Color.borderSoft)
                 remindersRow
+                Divider().background(Tokens.Color.borderSoft)
+                blockTimeRow
                 Divider().background(Tokens.Color.borderSoft)
                 listRow
                 Divider().background(Tokens.Color.borderSoft)
@@ -303,6 +365,114 @@ struct TaskDetailSheet: View {
                 )
         }
         .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var blockTimeRow: some View {
+        let canBlock = task.dueDate != nil && !task.allDay
+        let hasAccount = !mirrorableCalendars.isEmpty
+        VStack(alignment: .leading, spacing: Tokens.Space.sm) {
+            HStack {
+                detailLabel(icon: "calendar.badge.clock", text: "Block time in calendar")
+                Spacer()
+                Toggle("", isOn: Binding(
+                    get: { task.isTimeBlocked },
+                    set: { newValue in
+                        task.isTimeBlocked = newValue
+                        if newValue, task.mirrorCalendarId == nil {
+                            // Default to user's pref, else the first mirrorable calendar.
+                            let pref = UserDefaults.standard.string(forKey: PrefsKey.defaultMirrorCalendarID)
+                            task.mirrorCalendarId = pref ?? mirrorableCalendars.first?.googleCalendarID
+                        }
+                        persist()
+                    }
+                ))
+                .tint(Tokens.Color.teal)
+                .labelsHidden()
+                .disabled(!canBlock || !hasAccount)
+            }
+            if !canBlock {
+                Text("Set a specific time first.")
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Tokens.Color.text3)
+            } else if !hasAccount {
+                Text("Connect Google Calendar in Settings to enable.")
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Tokens.Color.text3)
+            } else if task.isTimeBlocked {
+                blockTimeOptions
+            }
+        }
+        .padding(.horizontal, Tokens.Space.lg)
+        .padding(.vertical, Tokens.Space.md)
+    }
+
+    private var blockTimeOptions: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Calendar")
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Tokens.Color.text3)
+                Spacer()
+                Menu {
+                    ForEach(mirrorableCalendars) { cal in
+                        Button {
+                            task.mirrorCalendarId = cal.googleCalendarID
+                            persist()
+                        } label: {
+                            Label(cal.name, systemImage: cal.googleCalendarID == task.mirrorCalendarId ? "checkmark" : "calendar")
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(selectedCalendarName)
+                            .font(Tokens.Font.chip)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 9, weight: .semibold))
+                    }
+                    .padding(.horizontal, Tokens.Space.md)
+                    .padding(.vertical, 6)
+                    .background(Tokens.Color.teal.opacity(0.18))
+                    .foregroundStyle(Tokens.Color.teal)
+                    .clipShape(Capsule())
+                }
+            }
+            HStack {
+                Text("Duration")
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Tokens.Color.text3)
+                Spacer()
+                HStack(spacing: 6) {
+                    ForEach([(15, "15m"), (30, "30m"), (60, "1h"), (90, "1h 30m"), (120, "2h")], id: \.0) { minutes, label in
+                        let isSelected = Int(task.mirrorDurationSeconds / 60) == minutes
+                        Button {
+                            task.mirrorDurationSeconds = TimeInterval(minutes * 60)
+                            persist()
+                        } label: {
+                            Text(label)
+                                .font(Tokens.Font.chip)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 5)
+                                .background(isSelected ? Tokens.Color.teal.opacity(0.18) : Tokens.Color.surface2)
+                                .foregroundStyle(isSelected ? Tokens.Color.teal : Tokens.Color.text2)
+                                .clipShape(Capsule())
+                                .overlay(
+                                    Capsule().stroke(isSelected ? Tokens.Color.teal : Tokens.Color.borderSoft, lineWidth: isSelected ? 1 : 0.5)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    private var selectedCalendarName: String {
+        guard let id = task.mirrorCalendarId,
+              let cal = mirrorableCalendars.first(where: { $0.googleCalendarID == id })
+        else { return "Pick…" }
+        return cal.name
     }
 
     private var listRow: some View {
@@ -447,16 +617,28 @@ struct TaskDetailSheet: View {
     private func deleteTask() {
         Haptics.warning()
         let taskID = task.id
+        let mirroredEventId = task.mirroredEventId
+        let mirrorCalendarId = task.mirrorCalendarId
         modelContext.delete(task)
         try? modelContext.save()
-        Task { await NotificationManager.shared.cancelReminders(forTaskID: taskID) }
+        Task {
+            await NotificationManager.shared.cancelReminders(forTaskID: taskID)
+            await GoogleCalendarService.shared.deleteMirrorIfNeeded(
+                taskID: taskID,
+                eventID: mirroredEventId,
+                calendarID: mirrorCalendarId
+            )
+        }
         WidgetReloader.reload()
         dismiss()
     }
 
     private func persist() {
         try? modelContext.save()
-        Task { await NotificationManager.shared.scheduleReminders(for: task) }
+        Task {
+            await NotificationManager.shared.scheduleReminders(for: task)
+            await GoogleCalendarService.shared.syncTaskToCalendar(task)
+        }
         WidgetReloader.reload()
     }
 

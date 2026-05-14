@@ -50,9 +50,18 @@ struct TaskRowActionContainer<Content: View>: View {
             ) { task in
                 Button("Delete", role: .destructive) {
                     let taskID = task.id
+                    let mirroredEventId = task.mirroredEventId
+                    let mirrorCalendarId = task.mirrorCalendarId
                     modelContext.delete(task)
                     try? modelContext.save()
-                    Task { await NotificationManager.shared.cancelReminders(forTaskID: taskID) }
+                    Task {
+                        await NotificationManager.shared.cancelReminders(forTaskID: taskID)
+                        await GoogleCalendarService.shared.deleteMirrorIfNeeded(
+                            taskID: taskID,
+                            eventID: mirroredEventId,
+                            calendarID: mirrorCalendarId
+                        )
+                    }
                     WidgetReloader.reload()
                     deletingTask = nil
                 }
@@ -85,6 +94,10 @@ struct TaskRowActionContainer<Content: View>: View {
                 // Just completed — cancel pending reminders.
                 await NotificationManager.shared.cancelReminders(forTaskID: task.id)
             }
+            // Mirror the title change ("✓ " prefix) to Google Calendar if
+            // this task has a mirrored event. Per spec, we DON'T delete on
+            // completion — history matters.
+            await GoogleCalendarService.shared.syncTaskToCalendar(task)
         }
         WidgetReloader.reload()
     }

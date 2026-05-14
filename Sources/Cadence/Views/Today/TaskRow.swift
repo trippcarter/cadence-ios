@@ -8,6 +8,12 @@ struct TaskRow: View {
     /// Tapping the row body (everything except the complete circle) fires this.
     var onTitleTap: (() -> Void)? = nil
     @Environment(\.modelContext) private var modelContext
+    @Query private var cachedEvents: [CachedEvent]
+
+    /// True when the task's mirrored event has been edited externally.
+    private var isMirrorDiverged: Bool {
+        MirrorDivergence.divergedStart(for: task, among: cachedEvents) != nil
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: Tokens.Space.md) {
@@ -136,7 +142,40 @@ struct TaskRow: View {
         if let list = task.list {
             result.append(AnyView(listChip(for: list)))
         }
+        if isMirrorDiverged {
+            result.append(AnyView(divergedChip))
+        } else if task.hasActiveMirror {
+            result.append(AnyView(mirroredChip))
+        }
         return result
+    }
+
+    private var mirroredChip: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "calendar")
+                .font(.system(size: 9, weight: .semibold))
+            Text("Blocked")
+                .font(Tokens.Font.chip)
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 2)
+        .background(Tokens.Color.teal.opacity(0.12))
+        .foregroundStyle(Tokens.Color.teal)
+        .clipShape(Capsule())
+    }
+
+    private var divergedChip: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "exclamationmark.arrow.triangle.2.circlepath")
+                .font(.system(size: 9, weight: .semibold))
+            Text("Modified in Google")
+                .font(Tokens.Font.chip)
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 2)
+        .background(Tokens.Color.amber.opacity(0.18))
+        .foregroundStyle(Tokens.Color.amber)
+        .clipShape(Capsule())
     }
 
     private func timeChip(for date: Date) -> some View {

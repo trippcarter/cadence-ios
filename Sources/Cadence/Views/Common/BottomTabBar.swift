@@ -12,7 +12,7 @@ struct BottomTabBar: View {
     var body: some View {
         HStack(spacing: 0) {
             tabButton(.today, system: "sun.max.fill", label: "Today")
-            tabButton(.week, system: "calendar", label: "Week")
+            tabButton(.week, system: "calendar", label: "Calendar")
             addButton
             tabButton(.lists, system: "list.bullet", label: "Lists")
             tabButton(.you, system: "person.fill", label: "You")

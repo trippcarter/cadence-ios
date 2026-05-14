@@ -4,12 +4,20 @@ import SwiftUI
 /// survive launches and (eventually) sync via NSUbiquitousKeyValueStore in
 /// Phase 2.
 enum PrefsKey {
-    static let hasOnboarded         = "hasOnboarded"
-    static let dailyBriefHour       = "dailyBriefHour"
-    static let dailyBriefMinute     = "dailyBriefMinute"
-    static let rolloverPolicy       = "defaultRolloverPolicy"   // RolloverPolicy.rawValue
-    static let themeChoice          = "themeChoice"             // ThemeChoice.rawValue
-    static let notificationsEnabled = "notificationsEnabled"    // master switch
+    static let hasOnboarded             = "hasOnboarded"
+    static let dailyBriefHour           = "dailyBriefHour"
+    static let dailyBriefMinute         = "dailyBriefMinute"
+    static let rolloverPolicy           = "defaultRolloverPolicy"   // RolloverPolicy.rawValue
+    static let themeChoice              = "themeChoice"             // ThemeChoice.rawValue
+    static let notificationsEnabled     = "notificationsEnabled"    // master switch
+
+    // Two-way Google Calendar sync (Phase 7a)
+    /// Google calendar ID the user picked as the default destination when
+    /// time-blocking new tasks. nil = ask each time / use account primary.
+    static let defaultMirrorCalendarID  = "defaultMirrorCalendarID"
+    /// When true, new tasks with a specific time auto-toggle isTimeBlocked=true
+    /// on save. Default false — opt-in.
+    static let autoMirrorTimeBlocked    = "autoMirrorTimeBlocked"
 }
 
 /// Three-way theme picker. Applied at the app root via .preferredColorScheme.
