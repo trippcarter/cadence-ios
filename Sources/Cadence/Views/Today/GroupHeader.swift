@@ -19,12 +19,12 @@ struct GroupHeader: View {
                     .textCase(.uppercase)
                     .kerning(0.6)
             }
-            if let trailingLabel {
+            if let trailingLabel, !trailingLabel.isEmpty {
                 Text("· \(trailingLabel)")
                     .font(Tokens.Font.label)
                     .foregroundStyle(Tokens.Color.text3)
                     .textCase(.uppercase)
-            } else {
+            } else if trailingLabel == nil {
                 Text("· \(count) \(count == 1 ? "task" : "tasks")")
                     .font(Tokens.Font.label)
                     .foregroundStyle(Tokens.Color.text3)

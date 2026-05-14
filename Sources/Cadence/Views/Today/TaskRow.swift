@@ -39,6 +39,29 @@ struct TaskRow: View {
             RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous)
                 .stroke(Tokens.Color.borderSoft, lineWidth: 0.5)
         )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint(task.status == .completed ? "Double-tap to mark incomplete" : "Double-tap to mark complete")
+    }
+
+    private var accessibilityLabel: String {
+        var parts: [String] = ["Task: \(task.title)"]
+        if let due = task.dueDate {
+            if task.allDay {
+                parts.append("due today")
+            } else {
+                parts.append("due " + due.formatted(.dateTime.hour().minute()))
+            }
+        }
+        if let list = task.list {
+            parts.append("in \(list.name)")
+        }
+        if task.status == .completed {
+            parts.append("completed")
+        } else if task.isCarriedOver {
+            parts.append("carried over")
+        }
+        return parts.joined(separator: ", ")
     }
 
     // MARK: Complete circle

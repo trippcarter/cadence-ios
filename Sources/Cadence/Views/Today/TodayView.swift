@@ -9,6 +9,7 @@ struct TodayView: View {
     /// app stays open past midnight.
     @State private var now: Date = .now
     @State private var detailTask: TaskItem?
+    @State private var hasAppeared = false
 
     var body: some View {
         ZStack {
@@ -68,6 +69,10 @@ struct TodayView: View {
                     )
                 }
 
+                if carriedTasks.isEmpty && timedTasks.isEmpty && unscheduledTasks.isEmpty && completedToday.isEmpty {
+                    emptyStateRow
+                }
+
                 // Breathing room above the floating tab bar
                 Color.clear
                     .frame(height: 120)
@@ -80,9 +85,17 @@ struct TodayView: View {
             .refreshable {
                 try? await _Concurrency.Task.sleep(for: .milliseconds(600))
                 now = .now
+                Haptics.tap()
             }
         }
-        .onAppear { now = .now }
+        .onAppear {
+            now = .now
+            if !hasAppeared {
+                withAnimation(.bouncy(duration: 0.55).delay(0.05)) {
+                    hasAppeared = true
+                }
+            }
+        }
         .sheet(item: $detailTask) { task in
             TaskDetailSheet(task: task)
         }
@@ -93,7 +106,7 @@ struct TodayView: View {
     @ViewBuilder
     private func taskSection(title: String, count: Int, accent: Color, tasks: [TaskItem], showsCarriedChip: Bool = false) -> some View {
         Section {
-            ForEach(tasks) { task in
+            ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
                 TaskRowActionContainer(task: task) {
                     TaskRow(
                         task: task,
@@ -101,6 +114,12 @@ struct TodayView: View {
                         onTitleTap: { detailTask = task }
                     )
                 }
+                .opacity(hasAppeared ? 1 : 0)
+                .offset(y: hasAppeared ? 0 : 12)
+                .animation(
+                    .bouncy(duration: 0.5).delay(Double(index) * 0.05),
+                    value: hasAppeared
+                )
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: 4, leading: Tokens.Space.lg, bottom: 4, trailing: Tokens.Space.lg))
@@ -111,6 +130,33 @@ struct TodayView: View {
                 .textCase(nil)
         }
         .listSectionSeparator(.hidden)
+    }
+
+    // MARK: Empty state
+
+    private var emptyStateRow: some View {
+        VStack(spacing: Tokens.Space.md) {
+            ZStack {
+                Circle()
+                    .fill(Tokens.Color.accent.opacity(0.12))
+                    .frame(width: 76, height: 76)
+                Image(systemName: "moon.stars.fill")
+                    .font(.system(size: 30, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.accent2)
+            }
+            Text("Nothing on your plate today")
+                .font(Tokens.Font.title)
+                .foregroundStyle(Tokens.Color.text)
+            Text("Tap the + below to add a task, or pull down to refresh.")
+                .font(Tokens.Font.body)
+                .foregroundStyle(Tokens.Color.text3)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, Tokens.Space.xxl)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, Tokens.Space.xxxl)
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
     }
 
     // MARK: Derived task buckets

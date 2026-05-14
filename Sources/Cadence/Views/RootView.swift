@@ -8,6 +8,8 @@ struct RootView: View {
     @State private var pendingTaskDetail: TaskItem?
     @State private var didHandleLaunchArgs = false
 
+    @AppStorage(PrefsKey.hasOnboarded) private var hasOnboarded: Bool = false
+
     @Query private var allLists: [TaskList]
     @Query private var allTasks: [TaskItem]
 
@@ -26,6 +28,12 @@ struct RootView: View {
         .sheet(item: $pendingTaskDetail) { task in
             TaskDetailSheet(task: task)
         }
+        .fullScreenCover(isPresented: Binding(
+            get: { !hasOnboarded },
+            set: { if !$0 { hasOnboarded = true } }
+        )) {
+            OnboardingView()
+        }
         .onAppear {
             applyLaunchArgsOnce()
         }
@@ -37,19 +45,13 @@ struct RootView: View {
         case .today:
             TodayView()
         case .week:
-            PlaceholderView(
-                title: "Week view",
-                subtitle: "Coming next session. Tasks and events laid out across the next seven days."
-            )
+            WeekView()
         case .lists:
             NavigationStack(path: $listsPath) {
                 ListsView()
             }
         case .you:
-            PlaceholderView(
-                title: "You",
-                subtitle: "Settings, connected accounts, notifications, and AI preferences live here."
-            )
+            SettingsView()
         }
     }
 

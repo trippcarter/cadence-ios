@@ -21,6 +21,12 @@ enum AppLaunchArgs {
 
     static var openTaskMatching: String? { value(for: "--open-task") }
 
+    /// When present, force `hasOnboarded = true` at app start. Used by the
+    /// screenshot pipeline so the onboarding pager doesn't block other screens.
+    static var skipOnboarding: Bool {
+        CommandLine.arguments.contains("--skip-onboarding")
+    }
+
     private static func value(for key: String) -> String? {
         for arg in CommandLine.arguments {
             if arg.hasPrefix("\(key)=") {

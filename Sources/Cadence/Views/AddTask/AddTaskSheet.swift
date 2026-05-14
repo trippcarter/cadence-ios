@@ -92,6 +92,7 @@ struct AddTaskSheet: View {
                     .padding(.vertical, Tokens.Space.lg)
                 }
             }
+            .dismissKeyboardOnTap()
             .navigationTitle("New task")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
