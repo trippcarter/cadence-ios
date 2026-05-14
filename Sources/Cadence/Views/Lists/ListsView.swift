@@ -97,11 +97,11 @@ struct ListsView: View {
     // MARK: Derived data
 
     private var totalOpenTasks: Int {
-        allTasks.filter { $0.status != .completed && $0.parent == nil }.count
+        allTasks.filter { $0.status == .open && $0.parent == nil }.count
     }
 
     private func openTaskCount(for list: TaskList) -> Int {
-        allTasks.filter { $0.list?.id == list.id && $0.status != .completed && $0.parent == nil }.count
+        allTasks.filter { $0.list?.id == list.id && $0.status == .open && $0.parent == nil }.count
     }
 
     private func subtitle(for list: TaskList) -> String {

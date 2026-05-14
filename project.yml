@@ -110,6 +110,7 @@ targets:
       - path: Sources/Cadence/Models/CachedEvent.swift
       - path: Sources/Cadence/Models/CalendarConfig.swift
       - path: Sources/Cadence/Models/ConnectedAccount.swift
+      - path: Sources/Cadence/Models/RecurrenceRule.swift
       - path: Sources/Cadence/Tokens.swift
       - path: Sources/Cadence/Util/SharedContainer.swift
     settings:

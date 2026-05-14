@@ -14,6 +14,9 @@ enum TaskStatus: String, Codable {
     case open
     case completed
     case snoozed
+    /// Used for recurring tasks the user explicitly skipped (vs. completed).
+    /// Filtered like `.completed` everywhere (no Today / Carried over presence).
+    case skipped
 }
 
 enum RolloverPolicy: String, Codable, CaseIterable {
@@ -50,6 +53,12 @@ final class TaskItem {
     var createdAt: Date
     var createdBy: String       // CKRecord user ID (string)
     var completedBy: String?
+
+    // Recurrence (Phase 7b)
+    /// RFC 5545 RRULE string, e.g. "FREQ=WEEKLY;BYDAY=MO,WE,FR".
+    /// nil = one-shot task. Sent verbatim to Google Calendar's event.recurrence
+    /// when mirrored, so the same string drives both Cadence and Google.
+    var rruleString: String?
 
     // Two-way calendar sync (Phase 7a)
     /// When true and dueDate has a specific time, the task is mirrored to
@@ -135,6 +144,14 @@ final class TaskItem {
     var hasActiveMirror: Bool {
         isTimeBlocked && mirroredEventId != nil && mirrorCalendarId != nil
     }
+
+    /// In-memory representation of the recurrence rule. nil = one-shot.
+    var recurrence: RecurrenceRule? {
+        get { RecurrenceRule(rrule: rruleString) }
+        set { rruleString = newValue?.toRRULE() }
+    }
+
+    var isRecurring: Bool { rruleString != nil && !rruleString!.isEmpty }
 }
 
 // MARK: - TaskList

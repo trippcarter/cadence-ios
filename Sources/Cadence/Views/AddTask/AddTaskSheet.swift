@@ -4,9 +4,13 @@ import SwiftData
 struct AddTaskSheet: View {
     /// When provided, the list picker pre-selects this list on appear.
     let defaultList: TaskList?
+    /// When non-nil, pre-fills the title field on appear (also triggers
+    /// the live NL parse so the AS PARSED panel populates immediately).
+    let prefill: String?
 
-    init(defaultList: TaskList? = nil) {
+    init(defaultList: TaskList? = nil, prefill: String? = nil) {
         self.defaultList = defaultList
+        self.prefill = prefill
     }
 
     @Environment(\.modelContext) private var modelContext
@@ -15,7 +19,9 @@ struct AddTaskSheet: View {
     @Query(sort: [SortDescriptor(\TaskList.sortOrder, order: .forward)])
     private var lists: [TaskList]
 
-    @State private var title: String = ""
+    @State private var titleInput: String = ""
+    @State private var parsedTitle: String = ""
+    @State private var parsedResult: NaturalLanguageTaskParser.Result = .empty
     @State private var hasDueDate: Bool = true
     @State private var dueDate: Date = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: .now) ?? .now
     @State private var hasTime: Bool = false
@@ -29,7 +35,7 @@ struct AddTaskSheet: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: Tokens.Space.xl) {
                         sectionLabel("Task")
-                        TextField("What needs doing?", text: $title, axis: .vertical)
+                        TextField("Email Sam tomorrow at 3pm #personal !high", text: $titleInput, axis: .vertical)
                             .font(Tokens.Font.headline)
                             .foregroundStyle(Tokens.Color.text)
                             .padding(Tokens.Space.lg)
@@ -39,6 +45,10 @@ struct AddTaskSheet: View {
                                 RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous)
                                     .stroke(Tokens.Color.borderSoft, lineWidth: 0.5)
                             )
+
+                        if hasParsedSomething {
+                            asParsedPanel
+                        }
 
                         VStack(alignment: .leading, spacing: Tokens.Space.md) {
                             sectionLabel("When")
@@ -117,11 +127,144 @@ struct AddTaskSheet: View {
                     selectedListID = preferred.persistentModelID
                 }
             }
+            if let prefill, titleInput.isEmpty {
+                titleInput = prefill
+                applyParse(prefill)
+            }
+        }
+        .onChange(of: titleInput) { _, newValue in
+            applyParse(newValue)
         }
     }
 
+    private var hasParsedSomething: Bool {
+        parsedResult.dueDate != nil
+            || parsedResult.listToken != nil
+            || parsedResult.priority != nil
+            || !parsedResult.tags.isEmpty
+    }
+
     private var canSave: Bool {
-        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedListID != nil
+        let effectiveTitle = parsedTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !effectiveTitle.isEmpty && selectedListID != nil
+    }
+
+    // MARK: AS PARSED preview panel
+
+    private var asParsedPanel: some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.md) {
+            HStack(spacing: 6) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.accent2)
+                Text("AS PARSED")
+                    .font(Tokens.Font.label)
+                    .kerning(0.8)
+                    .foregroundStyle(Tokens.Color.text3)
+            }
+
+            // Inline colorized rendering of the original input.
+            Text(buildAttributedInput())
+                .font(Tokens.Font.body)
+                .foregroundStyle(Tokens.Color.text)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Structured field summary.
+            VStack(alignment: .leading, spacing: Tokens.Space.sm) {
+                parsedRow(label: "TASK", value: parsedTitle.isEmpty ? "—" : parsedTitle, tint: Tokens.Color.text)
+                if let due = parsedResult.dueDate {
+                    let label = parsedResult.allDay
+                        ? due.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
+                        : due.formatted(.dateTime.weekday(.wide).month(.abbreviated).day().hour().minute())
+                    parsedRow(label: "DUE", value: label, tint: Tokens.Color.amber)
+                }
+                if let token = parsedResult.listToken {
+                    let matched = NaturalLanguageTaskParser.fuzzyMatch(token: token, against: lists.map { $0.name })
+                    parsedRow(label: "LIST", value: matched ?? "#\(token) (no match)", tint: matched != nil ? Tokens.Color.accent2 : Tokens.Color.text3)
+                }
+                if let p = parsedResult.priority {
+                    parsedRow(label: "PRIORITY", value: priorityLabel(p), tint: Tokens.Color.mint)
+                }
+                if !parsedResult.tags.isEmpty {
+                    parsedRow(label: "TAGS", value: parsedResult.tags.map { "@" + $0 }.joined(separator: " "), tint: Tokens.Color.pink)
+                }
+            }
+        }
+        .padding(Tokens.Space.lg)
+        .background(Tokens.Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous)
+                .stroke(Tokens.Color.accent.opacity(0.25), lineWidth: 0.5)
+        )
+    }
+
+    private func parsedRow(label: String, value: String, tint: Color) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.md) {
+            Text(label)
+                .font(Tokens.Font.label)
+                .kerning(0.6)
+                .foregroundStyle(Tokens.Color.text3)
+                .frame(width: 70, alignment: .leading)
+            Text(value)
+                .font(Tokens.Font.bodyEmphasis)
+                .foregroundStyle(tint)
+            Spacer()
+        }
+    }
+
+    /// Builds an AttributedString of the original input where each recognized
+    /// token gets a token-kind color.
+    private func buildAttributedInput() -> AttributedString {
+        var attr = AttributedString(parsedResult.originalText)
+        let nsInput = parsedResult.originalText as NSString
+        for hl in parsedResult.highlights {
+            guard NSMaxRange(hl.range) <= nsInput.length else { continue }
+            let swiftRange = Range(hl.range, in: parsedResult.originalText)!
+            if let attrRange = Range(swiftRange, in: attr) {
+                let color: Color
+                switch hl.kind {
+                case .date:     color = Tokens.Color.amber
+                case .list:     color = Tokens.Color.accent2
+                case .priority: color = Tokens.Color.mint
+                case .tag:      color = Tokens.Color.pink
+                }
+                attr[attrRange].foregroundColor = color
+                attr[attrRange].font = Tokens.Font.bodyEmphasis
+            }
+        }
+        return attr
+    }
+
+    private func priorityLabel(_ p: Priority) -> String {
+        switch p {
+        case .high:   return "High"
+        case .medium: return "Medium"
+        case .low:    return "Low"
+        case .none:   return "None"
+        }
+    }
+
+    // MARK: Parse + apply
+
+    private func applyParse(_ input: String) {
+        let result = NaturalLanguageTaskParser.parse(input)
+        parsedResult = result
+        parsedTitle = result.title
+
+        if let parsedDate = result.dueDate {
+            hasDueDate = true
+            dueDate = parsedDate
+            hasTime = !result.allDay
+        }
+        if let token = result.listToken,
+           let matched = NaturalLanguageTaskParser.fuzzyMatch(token: token, against: lists.map { $0.name }),
+           let match = lists.first(where: { $0.name == matched }) {
+            selectedListID = match.persistentModelID
+        }
+        if let p = result.priority {
+            priority = p
+        }
     }
 
     private func sectionLabel(_ text: String) -> some View {
@@ -143,11 +286,16 @@ struct AddTaskSheet: View {
             && hasDueDate && hasTime
             && defaultCalID != nil
 
+        let finalTitle = parsedTitle.isEmpty
+            ? titleInput.trimmingCharacters(in: .whitespacesAndNewlines)
+            : parsedTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+
         let task = TaskItem(
-            title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+            title: finalTitle,
             dueDate: hasDueDate ? dueDate : nil,
             allDay: hasDueDate ? !hasTime : false,
             priority: priority,
+            tags: parsedResult.tags,
             list: list,
             isTimeBlocked: shouldMirror,
             mirrorCalendarId: shouldMirror ? defaultCalID : nil

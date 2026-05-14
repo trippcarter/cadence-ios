@@ -36,6 +36,13 @@ enum AppLaunchArgs {
     /// mode picker. Used by the screenshot pipeline.
     static var calendarMode: String? { value(for: "--calendar-mode") }
 
+    /// `--add-task-prefill=<text>` opens AddTaskSheet at launch with the
+    /// given text pre-typed. Useful for screenshotting the NL parser flow.
+    /// Spaces should be percent-encoded or use + as space.
+    static var addTaskPrefill: String? {
+        value(for: "--add-task-prefill")?.replacingOccurrences(of: "+", with: " ")
+    }
+
     private static func value(for key: String) -> String? {
         for arg in CommandLine.arguments {
             if arg.hasPrefix("\(key)=") {

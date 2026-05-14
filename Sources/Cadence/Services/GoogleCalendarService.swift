@@ -476,7 +476,7 @@ final class GoogleCalendarService: ObservableObject {
         }
         description += "—\nCreated by Cadence · taskId: \(task.id.uuidString)"
 
-        return [
+        var body: [String: Any] = [
             "summary": completed ? "✓ \(task.title)" : task.title,
             "description": description,
             "start": ["dateTime": iso.string(from: start)],
@@ -486,6 +486,12 @@ final class GoogleCalendarService: ObservableObject {
                 "url": "https://github.com/trippcarter/cadence-ios"
             ]
         ]
+        // Send the RRULE so Google renders a single recurring event covering
+        // every future occurrence (instead of one event per Cadence instance).
+        if let rrule = task.rruleString, !rrule.isEmpty {
+            body["recurrence"] = ["RRULE:\(rrule)"]
+        }
+        return body
     }
 
     // MARK: Token plumbing

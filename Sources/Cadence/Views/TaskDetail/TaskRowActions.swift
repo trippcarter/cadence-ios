@@ -36,6 +36,14 @@ struct TaskRowActionContainer<Content: View>: View {
                     Label("Snooze", systemImage: "moon.zzz.fill")
                 }
                 .tint(Tokens.Color.accent)
+                if task.isRecurring {
+                    Button {
+                        skipOccurrence()
+                    } label: {
+                        Label("Skip", systemImage: "forward.end.fill")
+                    }
+                    .tint(Tokens.Color.teal)
+                }
             }
             .sheet(item: $snoozingTask) { task in
                 SnoozeSheet(task: task)
@@ -75,6 +83,9 @@ struct TaskRowActionContainer<Content: View>: View {
 
     private func toggleComplete() {
         let wasCompleted = task.status == .completed
+        let wasRecurring = task.isRecurring
+        var nextInstance: TaskItem?
+
         withAnimation(Tokens.Motion.spring) {
             if wasCompleted {
                 task.status = .open
@@ -82,6 +93,9 @@ struct TaskRowActionContainer<Content: View>: View {
             } else {
                 task.status = .completed
                 task.completedAt = .now
+                if wasRecurring {
+                    nextInstance = TaskRepeater.generateNextInstance(of: task, in: modelContext)
+                }
                 Haptics.success()
             }
         }
@@ -93,11 +107,33 @@ struct TaskRowActionContainer<Content: View>: View {
             } else {
                 // Just completed — cancel pending reminders.
                 await NotificationManager.shared.cancelReminders(forTaskID: task.id)
+                if let nextInstance {
+                    await NotificationManager.shared.scheduleReminders(for: nextInstance)
+                }
             }
             // Mirror the title change ("✓ " prefix) to Google Calendar if
             // this task has a mirrored event. Per spec, we DON'T delete on
             // completion — history matters.
             await GoogleCalendarService.shared.syncTaskToCalendar(task)
+        }
+        WidgetReloader.reload()
+    }
+
+    private func skipOccurrence() {
+        guard task.isRecurring else { return }
+        var nextInstance: TaskItem?
+        withAnimation(Tokens.Motion.spring) {
+            task.status = .skipped
+            task.completedAt = .now   // doubles as "skipped at"
+            nextInstance = TaskRepeater.generateNextInstance(of: task, in: modelContext)
+            Haptics.tap()
+        }
+        try? modelContext.save()
+        Task {
+            await NotificationManager.shared.cancelReminders(forTaskID: task.id)
+            if let nextInstance {
+                await NotificationManager.shared.scheduleReminders(for: nextInstance)
+            }
         }
         WidgetReloader.reload()
     }

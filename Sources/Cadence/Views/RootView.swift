@@ -34,7 +34,7 @@ struct RootView: View {
         .ignoresSafeArea(.keyboard)
         .background(Tokens.Color.bg.ignoresSafeArea())
         .sheet(isPresented: $showingAddTask) {
-            AddTaskSheet()
+            AddTaskSheet(prefill: AppLaunchArgs.addTaskPrefill)
         }
         .sheet(item: $pendingTaskDetail) { task in
             TaskDetailSheet(task: task)
@@ -93,6 +93,10 @@ struct RootView: View {
             if let task = allTasks.first(where: { $0.title.lowercased().contains(needle) }) {
                 pendingTaskDetail = task
             }
+        }
+
+        if AppLaunchArgs.addTaskPrefill != nil {
+            showingAddTask = true
         }
     }
 }

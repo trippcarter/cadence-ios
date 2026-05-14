@@ -155,6 +155,16 @@ enum SeedData {
             list: personal
         ))
 
+        // 1 recurring task — daily 9 AM standup
+        let standup = TaskItem(
+            title: "Morning standup",
+            dueDate: at(today, hour: 9),
+            priority: .medium,
+            list: joint
+        )
+        standup.rruleString = "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"
+        tasks.append(standup)
+
         // 1 parent with subtasks
         let groceries = TaskItem(
             title: "Buy groceries for dinner party",

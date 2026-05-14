@@ -136,6 +136,9 @@ struct TaskRow: View {
         if let due = task.dueDate, !task.allDay, task.status != .completed {
             result.append(AnyView(timeChip(for: due)))
         }
+        if task.isRecurring {
+            result.append(AnyView(recurrenceIcon))
+        }
         if showsCarriedOverChip, let due = task.dueDate {
             result.append(AnyView(carriedChip(for: due)))
         }
@@ -148,6 +151,13 @@ struct TaskRow: View {
             result.append(AnyView(mirroredChip))
         }
         return result
+    }
+
+    private var recurrenceIcon: some View {
+        Image(systemName: "repeat")
+            .font(.system(size: 9, weight: .bold))
+            .foregroundStyle(Tokens.Color.accent2)
+            .accessibilityLabel("Recurring task")
     }
 
     private var mirroredChip: some View {

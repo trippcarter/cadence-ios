@@ -25,6 +25,8 @@ struct TaskDetailSheet: View {
     @State private var hasDueDate: Bool = false
     @State private var hasTime: Bool = false
     @State private var newSubtaskTitle: String = ""
+    @State private var showingRecurrenceSheet: Bool = false
+    @State private var recurrenceDraft: RecurrenceRule = RecurrenceRule(frequency: .weekly)
     @FocusState private var titleFocused: Bool
     @FocusState private var subtaskFocused: Bool
 
@@ -240,6 +242,8 @@ struct TaskDetailSheet: View {
                 Divider().background(Tokens.Color.borderSoft)
                 remindersRow
                 Divider().background(Tokens.Color.borderSoft)
+                repeatRow
+                Divider().background(Tokens.Color.borderSoft)
                 blockTimeRow
                 Divider().background(Tokens.Color.borderSoft)
                 listRow
@@ -365,6 +369,68 @@ struct TaskDetailSheet: View {
                 )
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: Repeat
+
+    private var repeatRow: some View {
+        HStack {
+            detailLabel(icon: "repeat", text: "Repeat")
+            Spacer()
+            Menu {
+                Button("Never") { applyRecurrence(nil) }
+                Divider()
+                Button("Daily") {
+                    applyRecurrence(RecurrenceRule(frequency: .daily))
+                }
+                Button("Weekly") {
+                    applyRecurrence(RecurrenceRule(frequency: .weekly))
+                }
+                Button("Monthly") {
+                    applyRecurrence(RecurrenceRule(frequency: .monthly))
+                }
+                Button("Yearly") {
+                    applyRecurrence(RecurrenceRule(frequency: .yearly))
+                }
+                Divider()
+                Button("Custom…") {
+                    recurrenceDraft = task.recurrence ?? RecurrenceRule(frequency: .weekly)
+                    showingRecurrenceSheet = true
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Text(repeatLabel)
+                        .font(Tokens.Font.bodyEmphasis)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 10, weight: .semibold))
+                }
+                .padding(.horizontal, Tokens.Space.md)
+                .padding(.vertical, 6)
+                .background(task.isRecurring ? Tokens.Color.accent.opacity(0.18) : Tokens.Color.surface2)
+                .foregroundStyle(task.isRecurring ? Tokens.Color.accent2 : Tokens.Color.text2)
+                .clipShape(Capsule())
+            }
+        }
+        .padding(.horizontal, Tokens.Space.lg)
+        .padding(.vertical, Tokens.Space.md)
+        .sheet(isPresented: $showingRecurrenceSheet) {
+            RecurrenceCustomSheet(rule: Binding(
+                get: { recurrenceDraft },
+                set: { newValue in
+                    recurrenceDraft = newValue
+                    applyRecurrence(newValue)
+                }
+            ))
+        }
+    }
+
+    private var repeatLabel: String {
+        task.recurrence?.displayLabel ?? "Off"
+    }
+
+    private func applyRecurrence(_ rule: RecurrenceRule?) {
+        task.recurrence = rule
+        persist()
     }
 
     @ViewBuilder
