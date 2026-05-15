@@ -168,13 +168,28 @@ struct SettingsView: View {
                     Text(authSession.state.user?.displayName ?? "Cadence")
                         .font(Tokens.Font.title)
                         .foregroundStyle(Tokens.Color.text)
-                    Text(authSession.state.user?.email ?? "Not signed in")
+                    Text(profileSubtitle)
                         .font(Tokens.Font.caption)
                         .foregroundStyle(Tokens.Color.text3)
                 }
                 Spacer()
             }
         }
+    }
+
+    /// Profile card subtitle — must NOT say "Not signed in" when the user is
+    /// actually signed in but has a nil email (Apple omits email on every
+    /// non-first sign-in for a given identifier). Showing both
+    /// "Signed in with Apple" (title fallback) and "Not signed in" (this
+    /// fallback) at the same time made the UI look stuck after Switch Apple ID.
+    private var profileSubtitle: String {
+        guard let user = authSession.state.user else {
+            return "Not signed in"
+        }
+        if let email = user.email, !email.isEmpty {
+            return email
+        }
+        return "Signed in with Apple ID"
     }
 
     private var profileInitials: String {

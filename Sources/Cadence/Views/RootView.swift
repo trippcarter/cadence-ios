@@ -46,6 +46,10 @@ struct RootView: View {
         .task {
             await authSession.refreshCredentialState()
         }
+        .onChange(of: authSession.state) { _, newState in
+            NSLog("[Cadence-Auth] RootView observed state change: isSignedIn=%@",
+                  newState.isSignedIn ? "true" : "false")
+        }
     }
 
     private var appContent: some View {
