@@ -11,6 +11,7 @@ struct RootView: View {
     @AppStorage(PrefsKey.hasOnboarded) private var hasOnboarded: Bool = false
 
     @EnvironmentObject private var notifications: NotificationManager
+    @EnvironmentObject private var authSession: AuthSession
     @Query private var allLists: [TaskList]
     @Query private var allTasks: [TaskItem]
 
@@ -18,9 +19,32 @@ struct RootView: View {
         Group {
             if let preview = AppLaunchArgs.widgetPreview {
                 WidgetGalleryView(preview: preview)
+            } else if !hasOnboarded {
+                OnboardingView()
+                    .transition(.opacity)
+            } else if !authSession.state.isSignedIn {
+                SignInView()
+                    .transition(.opacity)
             } else {
                 appContent
+                    .transition(.opacity.combined(with: .scale(scale: 0.97)))
             }
+        }
+        .animation(.smooth(duration: 0.45), value: hasOnboarded)
+        .animation(.smooth(duration: 0.45), value: authSession.state)
+        .overlay {
+            if authSession.showWelcomeSplash, let user = authSession.state.user {
+                WelcomeSplashView(firstName: user.firstNameOrFallback) {
+                    withAnimation(.smooth(duration: 0.45)) {
+                        authSession.showWelcomeSplash = false
+                    }
+                }
+                .transition(.opacity)
+                .zIndex(10)
+            }
+        }
+        .task {
+            await authSession.refreshCredentialState()
         }
     }
 
@@ -38,12 +62,6 @@ struct RootView: View {
         }
         .sheet(item: $pendingTaskDetail) { task in
             TaskDetailSheet(task: task)
-        }
-        .fullScreenCover(isPresented: Binding(
-            get: { !hasOnboarded },
-            set: { if !$0 { hasOnboarded = true } }
-        )) {
-            OnboardingView()
         }
         .onAppear {
             applyLaunchArgsOnce()

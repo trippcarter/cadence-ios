@@ -13,6 +13,7 @@ struct SettingsView: View {
     @State private var testFeedback: String?
 
     @EnvironmentObject private var notifications: NotificationManager
+    @EnvironmentObject private var authSession: AuthSession
     @Environment(\.modelContext) private var modelContext
 
     var body: some View {
@@ -31,6 +32,10 @@ struct SettingsView: View {
                     rowKeyValue("Version", value: appVersion)
                     Divider().background(Tokens.Color.borderSoft)
                     rowKeyValue("Build", value: buildNumber)
+                }
+
+                section(title: "Account") {
+                    AccountSection()
                 }
 
                 section(title: "iCloud sync") {
@@ -107,6 +112,10 @@ struct SettingsView: View {
                     .padding(.vertical, Tokens.Space.md)
                 }
 
+                section(title: "Danger zone") {
+                    ResetDataSection()
+                }
+
                 Section {
                     Text("Made with care · Cadence v\(appVersion)")
                         .font(Tokens.Font.caption)
@@ -151,21 +160,31 @@ struct SettingsView: View {
                             )
                         )
                         .frame(width: 52, height: 52)
-                    Text("TC")
+                    Text(profileInitials)
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(.white)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Tripp Carter")
+                    Text(authSession.state.user?.displayName ?? "Cadence")
                         .font(Tokens.Font.title)
                         .foregroundStyle(Tokens.Color.text)
-                    Text("tripp@mcinnis.net")
+                    Text(authSession.state.user?.email ?? "Not signed in")
                         .font(Tokens.Font.caption)
                         .foregroundStyle(Tokens.Color.text3)
                 }
                 Spacer()
             }
         }
+    }
+
+    private var profileInitials: String {
+        guard let name = authSession.state.user?.displayName, !name.isEmpty else { return "C" }
+        let initials = name
+            .components(separatedBy: .whitespacesAndNewlines)
+            .compactMap { $0.first.map(String.init) }
+            .prefix(2)
+            .joined()
+        return initials.uppercased()
     }
 
     private func themeChip(_ choice: ThemeChoice) -> some View {

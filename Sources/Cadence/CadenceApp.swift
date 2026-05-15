@@ -10,6 +10,7 @@ struct CadenceApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var notifications = NotificationManager.shared
     @StateObject private var cloudSync = CloudKitSyncManager.shared
+    @StateObject private var authSession = AuthSession.shared
 
     init() {
         do {
@@ -42,6 +43,7 @@ struct CadenceApp: App {
                     await GoogleCalendarService.shared.fetchAllEvents()
                 }
                 .environmentObject(cloudSync)
+                .environmentObject(authSession)
                 .onOpenURL { url in
                     handleOpenURL(url)
                 }

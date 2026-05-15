@@ -13,7 +13,13 @@ enum SeedData {
         let lists = makeDefaultLists()
         for list in lists { context.insert(list) }
 
+        // Sample tasks are dev-only — real users get clean empty lists
+        // and the friendly "Nothing on your plate today" empty state from
+        // Phase 1.8. The four default lists above (Inbox/Personal/Business/
+        // Joint Business) are still created so the app is immediately usable.
+        #if DEBUG
         seedSampleTasks(in: lists, context: context)
+        #endif
 
         do {
             try context.save()
