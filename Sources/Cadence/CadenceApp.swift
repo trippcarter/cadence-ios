@@ -25,6 +25,10 @@ struct CadenceApp: App {
         // writes from sign-in / sign-out / sync are visible to @Query views.
         GoogleCalendarService.shared.bindContext(container.mainContext)
 
+        // Same pattern for the CKShare custom-zone mirror — it needs to
+        // read/write SwiftData rows that the @Query views are observing.
+        SharedListMirror.shared.bind(context: container.mainContext)
+
         if AppLaunchArgs.skipOnboarding {
             UserDefaults.standard.set(true, forKey: PrefsKey.hasOnboarded)
         }
@@ -41,6 +45,8 @@ struct CadenceApp: App {
                     // Background-fetch events on every cold start so cached
                     // events stay roughly within the 15-min freshness budget.
                     await GoogleCalendarService.shared.fetchAllEvents()
+                    // Pull shared-zone changes so the lists view is fresh.
+                    await SharedListMirror.shared.pullAllSharedZones()
                 }
                 .environmentObject(cloudSync)
                 .environmentObject(authSession)
@@ -59,6 +65,7 @@ struct CadenceApp: App {
                     await notifications.rescheduleEverything(context: container.mainContext)
                     await GoogleCalendarService.shared.fetchAllEvents()
                     await cloudSync.refreshAccountStatus()
+                    await SharedListMirror.shared.pullAllSharedZones()
                 }
             }
         }
@@ -86,8 +93,9 @@ struct CadenceApp: App {
         NSLog("[Cadence-Share] accepting share from %@", metadata.ownerIdentity.userRecordID?.recordName ?? "<unknown>")
         Task {
             do {
-                _ = try await CloudKitSharingService.shared.accept(shareMetadata: metadata)
-                NSLog("[Cadence-Share] share accepted; SwiftData will mirror records on next sync tick")
+                let share = try await CloudKitSharingService.shared.accept(shareMetadata: metadata)
+                NSLog("[Cadence-Share] share accepted; mirroring records into SwiftData")
+                await SharedListMirror.shared.handleShareAccepted(share, metadata: metadata)
             } catch {
                 NSLog("[Cadence-Share] accept failed: %@", error.localizedDescription)
             }

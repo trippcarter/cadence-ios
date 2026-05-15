@@ -308,6 +308,7 @@ struct AddTaskSheet: View {
         Task {
             await GoogleCalendarService.shared.syncTaskToCalendar(task)
         }
+        Task { await SharedListMirror.shared.taskChanged(task) }
         WidgetReloader.reload()
         dismiss()
     }

@@ -114,6 +114,7 @@ struct TaskRow: View {
             }
         }
         try? modelContext.save()
+        Task { await SharedListMirror.shared.taskChanged(task) }
     }
 
     // MARK: Meta row (time + list chip + carried-over chip)

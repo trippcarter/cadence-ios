@@ -5,31 +5,27 @@ import SwiftData
 
 /// Owns the `CKShare` lifecycle for per-list sharing.
 ///
-/// Architecture (per Phase 4 plan):
+/// Architecture (Phase 4 + Phase 9 expansion):
 ///   - One `CKRecordZone` per shared list, named "Cadence.SharedList.<UUID>".
 ///   - A root `CKRecord` for the list lives in that zone; `CKShare` references
-///     the zone (so all child task records that land there are shared too).
-///   - `TaskList.shareRecordName` on the SwiftData model stores the share's
-///     `CKRecord.ID.recordName` so we can find the existing share later.
+///     the zone so all child task records that land there are shared too.
+///   - `TaskList.shareRecordName` stores the share's `recordName`.
+///   - When a list is shared, every `TaskItem` is *also* mirrored into the
+///     shared zone as a `CadenceTask` CKRecord. See `SharedListMirror` for
+///     the ongoing mutation-pump.
 ///
-/// Phase 4 caveat (documented in code so it's not lost): SwiftData's
-/// automatic CloudKit sync is bound to the *default* zone of the private
-/// database. The custom-zone records this service writes aren't fed back
-/// through SwiftData on the owner's side automatically. Cross-device
-/// sharing works for the recipient (they accept the share, records appear
-/// in their Shared DB which SwiftData picks up), but the owner side needs
-/// follow-up work to keep the local TaskList + custom-zone records in
-/// sync. For the initial co-owner roll-out we ship the invitation flow
-/// + accept flow + activity log, and iterate on the data round-trip once
-/// it's tested on two real devices.
+/// SwiftData remains the local source of truth on both sides. CloudKit
+/// replicates the shared-zone records between owner Private DB and recipient
+/// Shared DB; this service writes/reads those records and `SharedListMirror`
+/// keeps SwiftData in lockstep.
 @MainActor
 final class CloudKitSharingService: ObservableObject {
 
     static let shared = CloudKitSharingService()
 
-    private let container: CKContainer
-    private var privateDB: CKDatabase { container.privateCloudDatabase }
-    private var sharedDB:  CKDatabase { container.sharedCloudDatabase }
+    let container: CKContainer
+    var privateDB: CKDatabase { container.privateCloudDatabase }
+    var sharedDB:  CKDatabase { container.sharedCloudDatabase }
 
     @Published private(set) var lastError: String?
 
@@ -37,71 +33,95 @@ final class CloudKitSharingService: ObservableObject {
         self.container = CKContainer(identifier: CadenceContainer.cloudContainerID)
     }
 
+    // MARK: Record types
+
+    static let listRecordType = "CadenceList"
+    static let taskRecordType = "CadenceTask"
+
     // MARK: Share creation / lookup
 
     /// Returns the existing CKShare for a list, or nil if it isn't shared yet.
     func existingShare(for list: TaskList) async -> CKShare? {
         guard let zone = list.sharedZoneID else { return nil }
-        return await fetchShare(in: zone)
+        return await fetchShare(in: zone, database: privateDB)
     }
 
     /// Creates (or returns) a CKShare for the given list. Persists the
     /// share-record name on the TaskList so future calls find it.
     ///
-    /// Default participant role: read/write (Editor) — the most common
-    /// case for a co-owner sharing situation. The caller can adjust on
+    /// On creation we also mirror every TaskItem currently in the list into
+    /// the shared zone — that's what makes the shared content visible to
+    /// recipients (vs. the empty-zone behavior pre-Phase-9).
+    ///
+    /// Default participant role: read/write (Editor) — caller can adjust on
     /// the system share sheet before sending.
     func makeShare(for list: TaskList, ownerName: String) async throws -> (CKShare, CKContainer) {
-        // 1. Make sure the zone exists.
         let zoneID = try await ensureSharedZone(for: list)
 
-        // 2. Look for an existing share in that zone first.
-        if let existing = await fetchShare(in: zoneID) {
+        if let existing = await fetchShare(in: zoneID, database: privateDB) {
             return (existing, container)
         }
 
-        // 3. Create a root record for the list in the zone if not already there.
         let rootRecordID = CKRecord.ID(recordName: "list-\(list.id.uuidString)", zoneID: zoneID)
         let rootRecord: CKRecord
         do {
             rootRecord = try await privateDB.record(for: rootRecordID)
+            applyListFields(rootRecord, list: list, ownerDisplayName: ownerName)
         } catch {
-            // Doesn't exist yet — create.
-            let newRecord = CKRecord(recordType: "CadenceList", recordID: rootRecordID)
-            newRecord["name"] = list.name as CKRecordValue
-            newRecord["colorKey"] = list.colorKey as CKRecordValue
-            newRecord["iconKey"] = list.iconKey as CKRecordValue
+            let newRecord = CKRecord(recordType: Self.listRecordType, recordID: rootRecordID)
+            applyListFields(newRecord, list: list, ownerDisplayName: ownerName)
             rootRecord = newRecord
         }
 
-        // 4. Create + save the share.
         let share = CKShare(rootRecord: rootRecord)
         share[CKShare.SystemFieldKey.title] = "Cadence — \(list.name)" as CKRecordValue
         share[CKShare.SystemFieldKey.shareType] = "net.mcinnis.cadence.list" as CKRecordValue
-        share.publicPermission = .none // Invite-only, no public link
+        share.publicPermission = .none
 
-        let result = try await privateDB.modifyRecords(saving: [rootRecord, share], deleting: [])
-        // Verify both saved
-        for (_, saveResult) in result.saveResults {
-            if case .failure(let err) = saveResult { throw err }
+        // First commit: list root + share itself.
+        let firstBatch = try await privateDB.modifyRecords(saving: [rootRecord, share], deleting: [])
+        for (_, result) in firstBatch.saveResults {
+            if case .failure(let err) = result { throw err }
         }
 
-        // 5. Persist on the TaskList so subsequent shares find this share.
         list.shareRecordName = share.recordID.recordName
+
+        // Second commit: mirror every existing TaskItem into the zone so
+        // recipients see content as soon as they accept the share.
+        let taskRecords = list.taskList.map { task -> CKRecord in
+            let recordID = makeTaskRecordID(taskID: task.id, zoneID: zoneID)
+            let record = CKRecord(recordType: Self.taskRecordType, recordID: recordID)
+            applyTaskFields(record, task: task, listRootID: rootRecordID)
+            task.cloudRecordName = recordID.recordName
+            return record
+        }
+        if !taskRecords.isEmpty {
+            let result = try await privateDB.modifyRecords(saving: taskRecords, deleting: [])
+            for (_, saveResult) in result.saveResults {
+                if case .failure(let err) = saveResult {
+                    NSLog("[Cadence-Share] mirror-on-create save failed: %@", err.localizedDescription)
+                }
+            }
+        }
+
         return (share, container)
     }
 
     /// Stop sharing — deletes the share, the root record, and the entire zone.
+    /// Local TaskItems stay (the list reverts to private) but their cloud
+    /// record names are wiped so a future re-share starts fresh.
     func stopSharing(_ list: TaskList) async throws {
         guard let zoneID = list.sharedZoneID else { return }
         try await privateDB.modifyRecordZones(saving: [], deleting: [zoneID])
         list.shareRecordName = nil
+        list.shareZoneChangeToken = nil
+        for task in list.taskList {
+            task.cloudRecordName = nil
+        }
     }
 
     // MARK: Participants
 
-    /// Fetch the current participants on a shared list. The owner is always
-    /// the first participant returned. Use to render avatars + roles.
     func participants(for list: TaskList) async -> [CKShare.Participant] {
         guard let share = await existingShare(for: list) else { return [] }
         return share.participants
@@ -109,15 +129,11 @@ final class CloudKitSharingService: ObservableObject {
 
     // MARK: Accept incoming share
 
-    /// Called from the scene delegate when iOS hands us a CKShareMetadata
-    /// (user tapped a share URL). The records land in the user's Shared DB;
-    /// SwiftData's CloudKit mirror picks them up automatically on the next
-    /// sync tick.
     func accept(shareMetadata: CKShare.Metadata) async throws -> CKShare {
         try await container.accept(shareMetadata)
     }
 
-    // MARK: Internals
+    // MARK: Internals (zone setup + share lookup)
 
     private func ensureSharedZone(for list: TaskList) async throws -> CKRecordZone.ID {
         if let existing = list.sharedZoneID {
@@ -130,10 +146,10 @@ final class CloudKitSharingService: ObservableObject {
         return zoneID
     }
 
-    private func fetchShare(in zoneID: CKRecordZone.ID) async -> CKShare? {
+    private func fetchShare(in zoneID: CKRecordZone.ID, database: CKDatabase) async -> CKShare? {
         do {
             let query = CKQuery(recordType: CKRecord.SystemType.share, predicate: NSPredicate(value: true))
-            let result = try await privateDB.records(
+            let result = try await database.records(
                 matching: query,
                 inZoneWith: zoneID,
                 desiredKeys: nil,
@@ -150,18 +166,97 @@ final class CloudKitSharingService: ObservableObject {
             return nil
         }
     }
+
+    // MARK: Record field application
+
+    func applyListFields(_ record: CKRecord, list: TaskList, ownerDisplayName: String) {
+        record["name"] = list.name as CKRecordValue
+        record["colorKey"] = list.colorKey as CKRecordValue
+        record["iconKey"] = list.iconKey as CKRecordValue
+        record["ownerDisplayName"] = ownerDisplayName as CKRecordValue
+        record["modifiedAt"] = list.modifiedAt as CKRecordValue
+    }
+
+    func applyTaskFields(_ record: CKRecord, task: TaskItem, listRootID: CKRecord.ID) {
+        record["id"] = task.id.uuidString as CKRecordValue
+        record["title"] = task.title as CKRecordValue
+        if let notes = task.notes {
+            record["notes"] = notes as CKRecordValue
+        } else {
+            record["notes"] = nil
+        }
+        if let due = task.dueDate {
+            record["dueDate"] = due as CKRecordValue
+        } else {
+            record["dueDate"] = nil
+        }
+        record["allDay"] = task.allDay as CKRecordValue
+        record["priority"] = task.priority.rawValue as CKRecordValue
+        record["status"] = task.status.rawValue as CKRecordValue
+        if let completedAt = task.completedAt {
+            record["completedAt"] = completedAt as CKRecordValue
+        } else {
+            record["completedAt"] = nil
+        }
+        if let rrule = task.rruleString {
+            record["rruleString"] = rrule as CKRecordValue
+        } else {
+            record["rruleString"] = nil
+        }
+        if let parent = task.parent {
+            record["parentTaskID"] = parent.id.uuidString as CKRecordValue
+        } else {
+            record["parentTaskID"] = nil
+        }
+        record["modifiedAt"] = task.modifiedAt as CKRecordValue
+        record["listRef"] = CKRecord.Reference(recordID: listRootID, action: .deleteSelf)
+    }
+
+    // MARK: Record ID helpers
+
+    func makeTaskRecordID(taskID: UUID, zoneID: CKRecordZone.ID) -> CKRecord.ID {
+        CKRecord.ID(recordName: "task-\(taskID.uuidString)", zoneID: zoneID)
+    }
+
+    func makeListRecordID(listID: UUID, zoneID: CKRecordZone.ID) -> CKRecord.ID {
+        CKRecord.ID(recordName: "list-\(listID.uuidString)", zoneID: zoneID)
+    }
+
+    // MARK: Database selection
+
+    /// Owners read/write the Private DB; recipients use the Shared DB.
+    /// The choice is per-list because each list can be one or the other.
+    func database(for list: TaskList) -> CKDatabase {
+        list.isSharedAsParticipant ? sharedDB : privateDB
+    }
+
+    /// Construct the zone ID for a list. Owner-side uses CKCurrentUserDefaultName;
+    /// recipient-side uses the owner's user record name captured at accept time.
+    func zoneID(for list: TaskList) -> CKRecordZone.ID? {
+        let zoneName = "Cadence.SharedList.\(list.id.uuidString)"
+        if list.isSharedAsParticipant {
+            guard let ownerName = list.shareZoneOwnerName else { return nil }
+            return CKRecordZone.ID(zoneName: zoneName, ownerName: ownerName)
+        }
+        guard list.shareRecordName != nil else { return nil }
+        return CKRecordZone.ID(zoneName: zoneName, ownerName: CKCurrentUserDefaultName)
+    }
 }
 
 // MARK: - TaskList helpers
 
 extension TaskList {
-    /// Derives the zone ID from the share record name we persisted on the
-    /// list. nil = list isn't shared yet.
+    /// Derives the OWNER-side zone ID from the share record name we persisted
+    /// on the list. nil for recipients (use `CloudKitSharingService.zoneID(for:)`
+    /// instead, which handles both sides).
     var sharedZoneID: CKRecordZone.ID? {
-        guard shareRecordName != nil else { return nil }
+        guard shareRecordName != nil, !isSharedAsParticipant else { return nil }
         let zoneName = "Cadence.SharedList.\(id.uuidString)"
         return CKRecordZone.ID(zoneName: zoneName, ownerName: CKCurrentUserDefaultName)
     }
 
-    var isShared: Bool { shareRecordName != nil }
+    /// Either owner-side or recipient-side: the list participates in a share.
+    var isShared: Bool {
+        shareRecordName != nil || isSharedAsParticipant
+    }
 }

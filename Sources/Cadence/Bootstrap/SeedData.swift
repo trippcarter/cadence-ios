@@ -37,25 +37,29 @@ enum SeedData {
                 name: "Inbox",
                 colorKey: "neutral",
                 iconKey: "tray.fill",
-                sortOrder: 0
+                sortOrder: 0,
+                isSeeded: true
             ),
             TaskList(
                 name: "Personal",
                 colorKey: "violet",
                 iconKey: "person.fill",
-                sortOrder: 1
+                sortOrder: 1,
+                isSeeded: true
             ),
             TaskList(
                 name: "Business",
                 colorKey: "amber",
                 iconKey: "briefcase.fill",
-                sortOrder: 2
+                sortOrder: 2,
+                isSeeded: true
             ),
             TaskList(
                 name: "Joint Business",
                 colorKey: "teal",
                 iconKey: "person.2.fill",
-                sortOrder: 3
+                sortOrder: 3,
+                isSeeded: true
             ),
         ]
     }

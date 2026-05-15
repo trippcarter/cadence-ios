@@ -60,6 +60,7 @@ struct TaskRowActionContainer<Content: View>: View {
                     let taskID = task.id
                     let mirroredEventId = task.mirroredEventId
                     let mirrorCalendarId = task.mirrorCalendarId
+                    let deletionPayload = SharedListMirror.shared.captureDeletionPayload(for: task)
                     ActivityLogger.record(.deleted, for: task, in: modelContext)
                     modelContext.delete(task)
                     try? modelContext.save()
@@ -70,6 +71,9 @@ struct TaskRowActionContainer<Content: View>: View {
                             eventID: mirroredEventId,
                             calendarID: mirrorCalendarId
                         )
+                        if let deletionPayload {
+                            await SharedListMirror.shared.performDeletion(deletionPayload)
+                        }
                     }
                     WidgetReloader.reload()
                     deletingTask = nil
@@ -119,6 +123,10 @@ struct TaskRowActionContainer<Content: View>: View {
             // this task has a mirrored event. Per spec, we DON'T delete on
             // completion — history matters.
             await GoogleCalendarService.shared.syncTaskToCalendar(task)
+            await SharedListMirror.shared.taskChanged(task)
+            if let nextInstance {
+                await SharedListMirror.shared.taskChanged(nextInstance)
+            }
         }
         WidgetReloader.reload()
     }
@@ -137,6 +145,10 @@ struct TaskRowActionContainer<Content: View>: View {
             await NotificationManager.shared.cancelReminders(forTaskID: task.id)
             if let nextInstance {
                 await NotificationManager.shared.scheduleReminders(for: nextInstance)
+            }
+            await SharedListMirror.shared.taskChanged(task)
+            if let nextInstance {
+                await SharedListMirror.shared.taskChanged(nextInstance)
             }
         }
         WidgetReloader.reload()

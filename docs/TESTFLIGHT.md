@@ -2,9 +2,11 @@
 
 Operational notes for shipping new Cadence builds to your iPhone (and
 eventually your co-owner's) via TestFlight. Phase 7 set this up;
-Phase 8 added Sign in with Apple gating + production seed cleanup.
+Phase 8 added Sign in with Apple gating + production seed cleanup;
+Phase 9 closed the auth-isolation hole and made list creation + shared-list
+data round-trip actually work.
 
-## What testers see now (post-Phase 8)
+## What testers see now (post-Phase 9)
 
 1. **3-page onboarding pager** (first launch only). Welcome → Lists
    overview → Notifications hint. Skippable.
@@ -14,10 +16,34 @@ Phase 8 added Sign in with Apple gating + production seed cleanup.
      behind a `privaterelay.appleid.com` alias.
    - Subsequent sign-ins: same Apple ID restores existing tasks via
      iCloud Private DB.
+   - **Account isolation** (new in Phase 9): the Apple Sign-In identity
+     is bound to the iCloud user record at sign-in time. If a future
+     launch detects the iCloud has changed (or doesn't match), Cadence
+     wipes the local auth blob and shows SignInView again. Prevents the
+     "I see your name on my device" failure mode.
 3. **Welcome splash** (~1.5s) — animated handoff to the main app.
 4. **Clean empty lists** — Inbox, Personal, Business, Joint Business.
    Real users never see the developer sample tasks (gated behind
    `#if DEBUG`).
+5. **Create your own lists** (Phase 9). Lists tab → "New" pill →
+   CreateListSheet (name + color + icon picker). Long-press any
+   user-created list for Edit / Delete options. Default lists are
+   editable but non-deletable.
+6. **Shared lists actually sync** (Phase 9). Tap the share icon on any
+   list, send via Messages, recipient accepts → list and tasks
+   materialize on their phone. Edits flow in both directions within
+   ~30 seconds via CloudKit silent pushes. See "How sharing works
+   under the hood" below for the architecture.
+
+## Settings → Account (Phase 9 additions)
+
+- **Backed by iCloud: <name>** — diagnostic line showing which iCloud
+  account is signed into the device. If this ever disagrees with the
+  Apple Sign-In name above it, something is off.
+- **Switch Apple ID** — destructive action. Signs out of the current
+  Apple credential and returns to SignInView with a "Pick a different
+  Apple ID" hint. Useful for testing as a different user without
+  reinstalling.
 
 ## Where data lives
 
@@ -159,6 +185,37 @@ puts the app on your phone in ~10 seconds.
 
 Both live at the top of `project.yml` under `settings.base`.
 
+## How sharing works under the hood (Phase 9)
+
+Cadence uses CloudKit's standard CKShare pattern but has to bridge it
+manually because SwiftData's automatic CloudKit sync only handles the
+**default zone** of the Private DB, while CKShare requires a **custom
+zone**.
+
+- Each shared list gets a custom zone: `Cadence.SharedList.<list-UUID>`.
+- A `CadenceList` root CKRecord lives in that zone (name, color, icon,
+  owner display name, modifiedAt). The CKShare attaches to it.
+- Every TaskItem on the list is also mirrored to a `CadenceTask`
+  CKRecord in the same zone (id, title, dueDate, status, priority,
+  rrule, parentTaskID, modifiedAt + a `listRef` reference to the root).
+- `SharedListMirror.swift` is the chokepoint. On every local task
+  mutation (Add, Complete, Edit, Delete, Snooze) it pushes the change
+  into the shared zone if the task's list is shared. On every CloudKit
+  silent-push notification (or app foreground), it pulls
+  `CKFetchRecordZoneChanges` deltas and reconciles into SwiftData
+  using last-writer-wins via `modifiedAt`.
+- Owner-side: writes go to the Private DB. Recipient-side: writes go
+  to the Shared DB. Either side reading observes the same zone via
+  CloudKit's CKShare propagation.
+- Server change tokens are persisted per-list on `TaskList.shareZoneChangeToken`
+  so pulls are incremental, not full-fetch every time.
+
+When the **owner taps "Stop Sharing"** in the CloudKit share sheet,
+`stopSharing(list:)` deletes the zone — recipients lose access on the
+next pull. Local SwiftData rows stay on both sides (the owner's are
+private again; the recipient's become orphaned and the
+`applyDeletion` codepath drops them).
+
 ## Limitations / future work
 
 - Currently **Internal Testing only**. External Testing (10,000 testers
@@ -170,3 +227,10 @@ Both live at the top of `project.yml` under `settings.base`.
   - Marketing copy + description
   - Privacy policy hosted publicly (currently a placeholder link in SignInView)
   - Apple's review process (typically 24–48 hours)
+- Phase 9 sharing still has rough edges:
+  - Conflict resolution is naive last-writer-wins. Concurrent edits on
+    the same field will lose one side. Acceptable for two-person lists;
+    will need vector-clock or 3-way-merge for larger groups.
+  - No "presence" indication of who else is viewing a shared list.
+  - Recurring task subtasks may not propagate parent references
+    correctly across the zone boundary — single-level subtasks work.

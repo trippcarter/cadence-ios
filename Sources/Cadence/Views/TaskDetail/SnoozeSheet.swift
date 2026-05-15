@@ -153,7 +153,10 @@ struct SnoozeSheet: View {
             task.status = .snoozed
         }
         try? modelContext.save()
-        Task { await NotificationManager.shared.cancelReminders(forTaskID: task.id) }
+        Task {
+            await NotificationManager.shared.cancelReminders(forTaskID: task.id)
+            await SharedListMirror.shared.taskChanged(task)
+        }
         WidgetReloader.reload()
         dismiss()
     }

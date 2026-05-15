@@ -677,6 +677,7 @@ struct TaskDetailSheet: View {
         modelContext.insert(sub)
         newSubtaskTitle = ""
         persist()
+        Task { await SharedListMirror.shared.taskChanged(sub) }
         Haptics.tap()
     }
 
@@ -685,6 +686,7 @@ struct TaskDetailSheet: View {
         let taskID = task.id
         let mirroredEventId = task.mirroredEventId
         let mirrorCalendarId = task.mirrorCalendarId
+        let deletionPayload = SharedListMirror.shared.captureDeletionPayload(for: task)
         ActivityLogger.record(.deleted, for: task, in: modelContext)
         modelContext.delete(task)
         try? modelContext.save()
@@ -695,6 +697,9 @@ struct TaskDetailSheet: View {
                 eventID: mirroredEventId,
                 calendarID: mirrorCalendarId
             )
+            if let deletionPayload {
+                await SharedListMirror.shared.performDeletion(deletionPayload)
+            }
         }
         WidgetReloader.reload()
         dismiss()
@@ -706,6 +711,7 @@ struct TaskDetailSheet: View {
         Task {
             await NotificationManager.shared.scheduleReminders(for: task)
             await GoogleCalendarService.shared.syncTaskToCalendar(task)
+            await SharedListMirror.shared.taskChanged(task)
         }
         WidgetReloader.reload()
     }

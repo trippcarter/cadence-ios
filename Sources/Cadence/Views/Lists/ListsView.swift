@@ -6,6 +6,12 @@ struct ListsView: View {
     private var lists: [TaskList]
     @Query private var allTasks: [TaskItem]
 
+    @Environment(\.modelContext) private var modelContext
+
+    @State private var showingCreateSheet = false
+    @State private var editingList: TaskList?
+    @State private var deletingList: TaskList?
+
     var body: some View {
         ZStack {
             Tokens.Color.bg.ignoresSafeArea()
@@ -32,6 +38,20 @@ struct ListsView: View {
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .listRowInsets(EdgeInsets(top: 4, leading: Tokens.Space.lg, bottom: 4, trailing: Tokens.Space.lg))
+                        .contextMenu {
+                            Button {
+                                editingList = list
+                            } label: {
+                                Label("Edit", systemImage: "pencil")
+                            }
+                            if !list.isSeeded {
+                                Button(role: .destructive) {
+                                    deletingList = list
+                                } label: {
+                                    Label("Delete list", systemImage: "trash")
+                                }
+                            }
+                        }
                     }
                 } header: {
                     GroupHeader(title: "Pinned", count: lists.count, accent: Tokens.Color.accent)
@@ -72,6 +92,30 @@ struct ListsView: View {
             ListDetailView(source: source)
         }
         .toolbar(.hidden, for: .navigationBar)
+        .sheet(isPresented: $showingCreateSheet) {
+            CreateListSheet(mode: .create)
+        }
+        .sheet(item: $editingList) { list in
+            CreateListSheet(mode: .edit(list))
+        }
+        .alert("Delete \(deletingList?.name ?? "this list")?",
+               isPresented: Binding(
+                   get: { deletingList != nil },
+                   set: { if !$0 { deletingList = nil } }
+               )) {
+            Button("Delete", role: .destructive) {
+                if let list = deletingList { deleteList(list) }
+                deletingList = nil
+            }
+            Button("Cancel", role: .cancel) { deletingList = nil }
+        } message: {
+            let count = deletingList.map { openTaskCount(for: $0) + completedCount(for: $0) } ?? 0
+            if count == 0 {
+                Text("This list is empty.")
+            } else {
+                Text("\(count) task\(count == 1 ? "" : "s") in this list will also be deleted.")
+            }
+        }
     }
 
     // MARK: Header card
@@ -83,10 +127,23 @@ struct ListsView: View {
                     .font(.system(size: 30, weight: .bold))
                     .foregroundStyle(Tokens.Color.text)
                 Spacer()
-                Text("ALL")
-                    .font(Tokens.Font.label)
-                    .kerning(1.2)
+                Button {
+                    Haptics.tap()
+                    showingCreateSheet = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 18, weight: .semibold))
+                        Text("New")
+                            .font(Tokens.Font.bodyEmphasis)
+                    }
                     .foregroundStyle(Tokens.Color.accent2)
+                    .padding(.horizontal, Tokens.Space.md)
+                    .padding(.vertical, 6)
+                    .background(Tokens.Color.accent.opacity(0.16))
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
             }
             Text("\(lists.count) lists · \(totalOpenTasks) tasks")
                 .font(Tokens.Font.body)
@@ -104,7 +161,17 @@ struct ListsView: View {
         allTasks.filter { $0.list?.id == list.id && $0.status == .open && $0.parent == nil }.count
     }
 
+    private func completedCount(for list: TaskList) -> Int {
+        allTasks.filter { $0.list?.id == list.id && $0.status != .open && $0.parent == nil }.count
+    }
+
     private func subtitle(for list: TaskList) -> String {
+        if list.isSharedAsParticipant {
+            if let owner = list.ownerDisplayName, !owner.isEmpty {
+                return "Shared by \(owner)"
+            }
+            return "Shared with you"
+        }
         if list.isShared {
             return "Shared · tap to manage"
         }
@@ -121,5 +188,14 @@ struct ListsView: View {
         case .overdue:
             return allTasks.filter { $0.isCarriedOver && $0.parent == nil }.count
         }
+    }
+
+    // MARK: Deletion
+
+    private func deleteList(_ list: TaskList) {
+        Haptics.warning()
+        modelContext.delete(list)
+        try? modelContext.save()
+        WidgetReloader.reload()
     }
 }

@@ -128,9 +128,11 @@ final class CloudKitSyncManager: ObservableObject {
     }
 
     /// Call from APNs delegate handlers when a CKNotification arrives.
-    /// SwiftData merges automatically — we mark the timestamp + reload widgets.
+    /// SwiftData merges the default-zone records automatically; for shared-
+    /// list custom zones we additionally drive the SharedListMirror pull.
     func handleRemoteChange() async {
         lastSyncedAt = .now
+        await SharedListMirror.shared.pullAllSharedZones()
         #if canImport(WidgetKit)
         WidgetCenter.shared.reloadAllTimelines()
         #endif

@@ -81,6 +81,17 @@ final class TaskItem {
     /// show the "modified in Google" badge).
     var lastSyncedStart: Date?
 
+    // Shared-list mirror (Phase 9)
+    /// CKRecord.recordName of the mirrored CadenceTask record in the shared
+    /// zone. Set the first time SharedListMirror pushes this task; reused on
+    /// updates so the mirror writes to the same record instead of creating
+    /// duplicates. nil = not mirrored (either local-only or list isn't shared).
+    var cloudRecordName: String?
+    /// Bumped to `Date.now` whenever the task is mutated locally. Drives
+    /// last-writer-wins conflict resolution against the remote `modifiedAt`
+    /// field on the CKRecord. Initialized to createdAt for migration.
+    var modifiedAt: Date = Date.now
+
     // Relationships
     var list: TaskList?
     var parent: TaskItem?
@@ -180,6 +191,31 @@ final class TaskList {
     /// Set when shared via CKShare (Phase 4).
     var shareRecordName: String?
 
+    /// True on the *recipient* side of a shared list — the row is materialized
+    /// from a CKRecord in our Shared DB, not authored locally. Used by the UI
+    /// to display "Shared by <ownerDisplayName>" and to skip some owner-only
+    /// affordances (e.g. the share toolbar button changes meaning).
+    var isSharedAsParticipant: Bool = false
+    /// Name of the person who created/owns the share, as captured from
+    /// CKShare.SystemFieldKey.title on accept. Display-only.
+    var ownerDisplayName: String?
+    /// Recipient-side only: the `recordName` of the CKUserRecord that owns
+    /// the share's zone. We need this to reconstruct the zone ID — recipient
+    /// zones use the owner's user-record name (not CKCurrentUserDefaultName)
+    /// when stored in the Shared DB.
+    var shareZoneOwnerName: String?
+    /// Last serverChangeToken received for this list's shared zone, encoded as
+    /// Data via `NSKeyedArchiver`. Passed back to `CKFetchRecordZoneChangesOperation`
+    /// to do incremental pulls instead of refetching the whole zone every time.
+    var shareZoneChangeToken: Data?
+    /// Bumped to `Date.now` on every local mutation that affects shared-zone
+    /// fields. Drives last-writer-wins for list metadata changes.
+    var modifiedAt: Date = Date.now
+    /// One of the seeded default lists (Inbox / Personal / Business /
+    /// Joint Business). These are non-deletable from the UI. Set by SeedData;
+    /// false for user-created lists.
+    var isSeeded: Bool = false
+
     @Relationship(deleteRule: .cascade, inverse: \TaskItem.list)
     var tasks: [TaskItem]?
 
@@ -197,7 +233,10 @@ final class TaskList {
         rolloverPolicy: RolloverPolicy = .on,
         defaultReminderOffsets: [TimeInterval] = [],
         isHidden: Bool = false,
-        shareRecordName: String? = nil
+        shareRecordName: String? = nil,
+        isSharedAsParticipant: Bool = false,
+        ownerDisplayName: String? = nil,
+        isSeeded: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -208,5 +247,8 @@ final class TaskList {
         self.defaultReminderOffsets = defaultReminderOffsets
         self.isHidden = isHidden
         self.shareRecordName = shareRecordName
+        self.isSharedAsParticipant = isSharedAsParticipant
+        self.ownerDisplayName = ownerDisplayName
+        self.isSeeded = isSeeded
     }
 }

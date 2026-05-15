@@ -19,7 +19,7 @@ settings:
     SWIFT_STRICT_CONCURRENCY: minimal
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     MARKETING_VERSION: "1.0.0"
-    CURRENT_PROJECT_VERSION: "6"
+    CURRENT_PROJECT_VERSION: "8"
     GENERATE_INFOPLIST_FILE: YES
     INFOPLIST_KEY_CFBundleDisplayName: Cadence
     SWIFT_TREAT_WARNINGS_AS_ERRORS: NO
@@ -63,6 +63,11 @@ targets:
       path: Sources/Cadence/Info.plist
       properties:
         CFBundleDisplayName: Cadence
+        # Pull version + build from the unified `settings.base` block above so
+        # CURRENT_PROJECT_VERSION / MARKETING_VERSION are the single source of
+        # truth. xcodegen would otherwise default to "1" / "1.0".
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         # Phase 7: we only use OS-provided crypto, so we qualify for the
         # export-compliance exemption (avoids a Yes/No prompt on every upload).
         ITSAppUsesNonExemptEncryption: false
@@ -134,5 +139,7 @@ targets:
     info:
       path: Sources/CadenceWidget/Info.plist
       properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension

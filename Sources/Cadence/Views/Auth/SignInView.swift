@@ -47,10 +47,12 @@ struct SignInView: View {
                     .foregroundStyle(Tokens.Color.accent2)
             }
             VStack(spacing: 8) {
-                Text("Welcome to Cadence")
+                Text(authSession.promptingSwitchAccount ? "Sign in again" : "Welcome to Cadence")
                     .font(.system(size: 28, weight: .bold))
                     .foregroundStyle(Tokens.Color.text)
-                Text("Daily tasks. Real life. One calm surface.")
+                Text(authSession.promptingSwitchAccount
+                     ? "Tap below and pick the Apple ID you want to use."
+                     : "Daily tasks. Real life. One calm surface.")
                     .font(Tokens.Font.bodyEmphasis)
                     .foregroundStyle(Tokens.Color.accent2)
                     .multilineTextAlignment(.center)
