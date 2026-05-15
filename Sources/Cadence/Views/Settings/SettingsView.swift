@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -15,6 +16,10 @@ struct SettingsView: View {
     @EnvironmentObject private var notifications: NotificationManager
     @EnvironmentObject private var authSession: AuthSession
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.openURL) private var openURL
+
+    @Query private var allTasks: [TaskItem]
+    @Query private var allLists: [TaskList]
 
     var body: some View {
         ZStack {
@@ -22,16 +27,17 @@ struct SettingsView: View {
 
             List {
                 Section {
-                    profileCard
+                    heroProfileCard
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(top: Tokens.Space.lg, leading: Tokens.Space.lg, bottom: Tokens.Space.sm, trailing: Tokens.Space.lg))
+                        .listRowInsets(EdgeInsets(top: Tokens.Space.xl, leading: Tokens.Space.lg, bottom: Tokens.Space.sm, trailing: Tokens.Space.lg))
                 }
 
-                section(title: "About") {
-                    rowKeyValue("Version", value: appVersion)
-                    Divider().background(Tokens.Color.borderSoft)
-                    rowKeyValue("Build", value: buildNumber)
+                Section {
+                    statsStrip
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 0, leading: Tokens.Space.lg, bottom: Tokens.Space.lg, trailing: Tokens.Space.lg))
                 }
 
                 section(title: "Account") {
@@ -116,12 +122,18 @@ struct SettingsView: View {
                     ResetDataSection()
                 }
 
+                section(title: "About") {
+                    aboutVersionRow
+                    Divider().background(Tokens.Color.borderSoft)
+                    aboutGitHubRow
+                }
+
                 Section {
-                    Text("Made with care · Cadence v\(appVersion)")
+                    Text("Made with care")
                         .font(Tokens.Font.caption)
                         .foregroundStyle(Tokens.Color.text3)
                         .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.top, Tokens.Space.xl)
+                        .padding(.top, Tokens.Space.lg)
                         .padding(.bottom, 120)
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
@@ -145,61 +157,202 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: Components
+    // MARK: Hero profile card
 
-    private var profileCard: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: Tokens.Space.md) {
-                ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [Tokens.Color.indigo, Tokens.Color.accent],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 52, height: 52)
-                    Text(profileInitials)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(.white)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(authSession.state.user?.displayName ?? "Cadence")
-                        .font(Tokens.Font.title)
-                        .foregroundStyle(Tokens.Color.text)
-                    Text(profileSubtitle)
-                        .font(Tokens.Font.caption)
+    /// The big "you" hero at the top of the You tab — 88pt gradient avatar
+    /// with initials, big rounded display name, email (or "Private email"
+    /// for the relay), and "Member since" eyebrow.
+    private var heroProfileCard: some View {
+        let user = authSession.state.user
+        return VStack(spacing: Tokens.Space.md) {
+            avatarBadge
+
+            VStack(spacing: 4) {
+                Text(user?.displayName ?? "Cadence")
+                    .font(.system(size: 24, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Tokens.Color.text)
+                    .multilineTextAlignment(.center)
+
+                emailLine
+                    .multilineTextAlignment(.center)
+
+                if let memberSince = user?.memberSinceLabel {
+                    Text(memberSince.uppercased())
+                        .font(Tokens.Font.label)
+                        .kerning(1.0)
                         .foregroundStyle(Tokens.Color.text3)
+                        .padding(.top, 2)
                 }
-                Spacer()
             }
         }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Tokens.Space.lg)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(profileAccessibilityLabel)
     }
 
-    /// Profile card subtitle — must NOT say "Not signed in" when the user is
-    /// actually signed in but has a nil email (Apple omits email on every
-    /// non-first sign-in for a given identifier). Showing both
-    /// "Signed in with Apple" (title fallback) and "Not signed in" (this
-    /// fallback) at the same time made the UI look stuck after Switch Apple ID.
-    private var profileSubtitle: String {
-        guard let user = authSession.state.user else {
-            return "Not signed in"
+    /// 88pt gradient circle with initials, matching the spec's violet/deep
+    /// violet gradient (Tokens.Color.accent → accentDeep, which are #7C5CFF
+    /// and #5B3CFA respectively).
+    private var avatarBadge: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [Tokens.Color.accent, Tokens.Color.accentDeep],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 88, height: 88)
+                .shadow(color: Tokens.Color.accentGlow, radius: 14, x: 0, y: 6)
+            Text(authSession.state.user?.avatarInitials ?? "C")
+                .font(.system(size: 32, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
         }
-        if let email = user.email, !email.isEmpty {
-            return email
-        }
-        return "Signed in with Apple ID"
     }
 
-    private var profileInitials: String {
-        guard let name = authSession.state.user?.displayName, !name.isEmpty else { return "C" }
-        let initials = name
-            .components(separatedBy: .whitespacesAndNewlines)
-            .compactMap { $0.first.map(String.init) }
-            .prefix(2)
-            .joined()
-        return initials.uppercased()
+    /// Email line — uses an italicized "Private email" label when Apple's
+    /// private relay is in use, since the actual address is noise.
+    @ViewBuilder
+    private var emailLine: some View {
+        let user = authSession.state.user
+        if user == nil {
+            Text("Not signed in")
+                .font(Tokens.Font.body)
+                .foregroundStyle(Tokens.Color.text3)
+        } else if let user, user.isUsingHiddenEmail {
+            Text("Private email")
+                .font(.system(size: 14, weight: .regular).italic())
+                .foregroundStyle(Tokens.Color.text2)
+        } else if let email = user?.email, !email.isEmpty {
+            Text(email)
+                .font(Tokens.Font.body)
+                .foregroundStyle(Tokens.Color.text2)
+        } else {
+            Text("Signed in with Apple ID")
+                .font(Tokens.Font.body)
+                .foregroundStyle(Tokens.Color.text2)
+        }
+    }
+
+    private var profileAccessibilityLabel: String {
+        guard let user = authSession.state.user else { return "Profile. Not signed in." }
+        var parts: [String] = ["Profile", user.displayName]
+        if user.isUsingHiddenEmail {
+            parts.append("Private email")
+        } else if let email = user.email, !email.isEmpty {
+            parts.append(email)
+        }
+        if let memberSince = user.memberSinceLabel {
+            parts.append(memberSince)
+        }
+        return parts.joined(separator: ". ")
+    }
+
+    // MARK: Stats strip
+
+    /// Three-card stat row matching the Today stat-card visual treatment.
+    /// Pulls from SwiftData @Query so values stay live as tasks complete.
+    private var statsStrip: some View {
+        HStack(spacing: Tokens.Space.sm) {
+            statCard(value: completedToday, label: "today", accent: Tokens.Color.accent)
+            statCard(value: completedThisWeek, label: "this week", accent: Tokens.Color.teal)
+            statCard(value: listsOwned, label: listsOwned == 1 ? "list" : "lists", accent: Tokens.Color.amber)
+        }
+    }
+
+    private func statCard(value: Int, label: String, accent: Color) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("\(value)")
+                .font(.system(size: 26, weight: .bold, design: .rounded))
+                .foregroundStyle(Tokens.Color.text)
+                .monospacedDigit()
+            Text(label.uppercased())
+                .font(Tokens.Font.label)
+                .kerning(1.1)
+                .foregroundStyle(accent)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, Tokens.Space.md)
+        .padding(.vertical, Tokens.Space.md)
+        .background(Tokens.Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous)
+                .stroke(Tokens.Color.borderSoft, lineWidth: 0.5)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(value) \(label)")
+    }
+
+    // MARK: Stat derivations
+
+    private var completedToday: Int {
+        let cal = Calendar.current
+        return allTasks.filter { task in
+            task.status == .completed
+                && task.parent == nil
+                && (task.completedAt.map(cal.isDateInToday) ?? false)
+        }.count
+    }
+
+    private var completedThisWeek: Int {
+        let cal = Calendar.current
+        let cutoff = cal.date(byAdding: .day, value: -7, to: .now) ?? .now
+        return allTasks.filter { task in
+            task.status == .completed
+                && task.parent == nil
+                && (task.completedAt.map { $0 >= cutoff } ?? false)
+        }.count
+    }
+
+    /// "Owned" = not a list someone shared TO us. Counts both private lists
+    /// and lists we ourselves are sharing with others.
+    private var listsOwned: Int {
+        allLists.filter { !$0.isSharedAsParticipant }.count
+    }
+
+    // MARK: About rows
+
+    private var aboutVersionRow: some View {
+        HStack {
+            rowLabel(icon: "app.badge", text: "Cadence")
+            Spacer()
+            Text("v\(appVersion) · build \(buildNumber)")
+                .font(Tokens.Font.body)
+                .foregroundStyle(Tokens.Color.text2)
+                .monospacedDigit()
+        }
+        .padding(.horizontal, Tokens.Space.lg)
+        .padding(.vertical, Tokens.Space.md)
+    }
+
+    private var aboutGitHubRow: some View {
+        Button {
+            Haptics.tap()
+            if let url = URL(string: "https://github.com/trippcarter/cadence-ios") {
+                openURL(url)
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "chevron.left.forwardslash.chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.accent2)
+                    .frame(width: 18)
+                Text("Source on GitHub")
+                    .font(Tokens.Font.bodyEmphasis)
+                    .foregroundStyle(Tokens.Color.accent2)
+                Spacer()
+                Image(systemName: "arrow.up.right.square")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.text3)
+            }
+            .padding(.horizontal, Tokens.Space.lg)
+            .padding(.vertical, Tokens.Space.md)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private func themeChip(_ choice: ThemeChoice) -> some View {
@@ -257,19 +410,6 @@ struct SettingsView: View {
                 .font(Tokens.Font.bodyEmphasis)
                 .foregroundStyle(Tokens.Color.text)
         }
-    }
-
-    private func rowKeyValue(_ key: String, value: String) -> some View {
-        HStack {
-            rowLabel(icon: "info.circle", text: key)
-            Spacer()
-            Text(value)
-                .font(Tokens.Font.body)
-                .foregroundStyle(Tokens.Color.text2)
-                .monospacedDigit()
-        }
-        .padding(.horizontal, Tokens.Space.lg)
-        .padding(.vertical, Tokens.Space.md)
     }
 
     // MARK: Daily brief binding

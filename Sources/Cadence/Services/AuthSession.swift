@@ -25,20 +25,48 @@ struct AuthenticatedUser: Codable, Equatable {
     /// against stale Keychain blobs surfacing the wrong identity to a
     /// different physical user.
     var iCloudUserRecordName: String?
+    /// Captured the first time this Apple identifier signs in. Persisted in
+    /// the per-identifier Keychain cache so "Member since" stays stable
+    /// across sign-out / sign-in cycles for the same Apple ID.
+    var memberSince: Date?
 
     var displayName: String {
         let parts = [firstName, lastName].compactMap { $0 }.filter { !$0.isEmpty }
         if !parts.isEmpty { return parts.joined(separator: " ") }
-        if let email, !email.isEmpty { return email }
-        // No name and no email — Apple withheld both, and our name cache had
-        // no prior entry for this identifier. Use a friendly placeholder
-        // instead of leaking the raw appleUserIdentifier prefix into the UI.
+        if let email, !email.isEmpty, !isUsingHiddenEmail { return email }
+        // No name and no usable email — Apple withheld both, and our name
+        // cache had no prior entry for this identifier. Use a friendly
+        // placeholder instead of leaking the raw appleUserIdentifier prefix
+        // into the UI.
         return "Signed in with Apple"
     }
 
     var firstNameOrFallback: String {
         if let firstName, !firstName.isEmpty { return firstName }
         return "there"
+    }
+
+    /// 2-character initials for the avatar badge. Prefers first+last; falls
+    /// back to first letter of email, then "C" (for Cadence).
+    var avatarInitials: String {
+        if let first = firstName?.first, let last = lastName?.first {
+            return "\(first)\(last)".uppercased()
+        }
+        if let first = firstName?.first {
+            return String(first).uppercased()
+        }
+        if let email = email?.first {
+            return String(email).uppercased()
+        }
+        return "C"
+    }
+
+    /// "Member since March 2026" — uses memberSince if available.
+    var memberSinceLabel: String? {
+        guard let memberSince else { return nil }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        return "Member since \(formatter.string(from: memberSince))"
     }
 
     /// True when the email is one of Apple's privaterelay.appleid.com addresses.
@@ -80,11 +108,14 @@ final class AuthSession: ObservableObject {
     /// JSON-encoded `[String: NameCacheEntry]`.
     private static let keychainNameCacheAccount = "AppleSignInNameCache"
 
-    /// What we remember per-identifier across sign-out cycles.
+    /// What we remember per-identifier across sign-out cycles. `firstSeenAt`
+    /// is captured the first time this identifier ever signs in, so the
+    /// Profile "Member since" line stays stable across signOut→signIn cycles.
     private struct NameCacheEntry: Codable {
         var firstName: String?
         var lastName: String?
         var email: String?
+        var firstSeenAt: Date?
     }
 
     @Published private(set) var state: State = .signedOut
@@ -144,31 +175,39 @@ final class AuthSession: ObservableObject {
         let resolvedEmail = appleEmail
             ?? cached?.email
             ?? (isSameUser ? existing?.email : nil)
+        // memberSince is stable per-identifier: keep the earliest known
+        // first-seen date. If nothing is cached and this is a brand-new
+        // identifier, stamp now.
+        let resolvedMemberSince = cached?.firstSeenAt
+            ?? (isSameUser ? existing?.memberSince : nil)
+            ?? .now
 
-        NSLog("[Cadence-Auth] resolved identity: firstName=%@, email=%@",
+        NSLog("[Cadence-Auth] resolved identity: firstName=%@, email=%@, memberSince=%@",
               resolvedFirstName ?? "<nil>",
-              resolvedEmail ?? "<nil>")
+              resolvedEmail ?? "<nil>",
+              "\(resolvedMemberSince)")
 
         var user = AuthenticatedUser(
             appleUserIdentifier: identifier,
             firstName: resolvedFirstName,
             lastName: resolvedLastName,
             email: resolvedEmail,
-            iCloudUserRecordName: nil
+            iCloudUserRecordName: nil,
+            memberSince: resolvedMemberSince
         )
 
-        // Update the persistent per-identifier cache if Apple actually gave
-        // us name/email this time (first-sign-in payload).
-        if appleFirstName != nil || appleLastName != nil || appleEmail != nil {
-            writeNameCacheEntry(
-                for: identifier,
-                entry: NameCacheEntry(
-                    firstName: appleFirstName ?? cached?.firstName,
-                    lastName: appleLastName ?? cached?.lastName,
-                    email: appleEmail ?? cached?.email
-                )
+        // Always update the per-identifier cache — either Apple gave us
+        // new name/email (first-sign-in payload) or we're stamping
+        // firstSeenAt for the first time.
+        writeNameCacheEntry(
+            for: identifier,
+            entry: NameCacheEntry(
+                firstName: appleFirstName ?? cached?.firstName,
+                lastName: appleLastName ?? cached?.lastName,
+                email: appleEmail ?? cached?.email,
+                firstSeenAt: cached?.firstSeenAt ?? resolvedMemberSince
             )
-        }
+        )
 
         // Capture the current iCloud user record name so future launches can
         // detect when the device's iCloud changed underneath us. Transition
