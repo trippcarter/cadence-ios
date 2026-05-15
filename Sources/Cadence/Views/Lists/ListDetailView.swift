@@ -1,5 +1,13 @@
 import SwiftUI
 import SwiftData
+import CloudKit
+
+/// Identifiable wrapper for sheet(item:) since CKShare isn't directly Identifiable.
+struct CKSharePresentation: Identifiable {
+    let id = UUID()
+    let share: CKShare
+    let container: CKContainer
+}
 
 struct ListDetailView: View {
     let source: ListSource
@@ -9,6 +17,8 @@ struct ListDetailView: View {
 
     @State private var detailTask: TaskItem?
     @State private var showingAddTask = false
+    @State private var presentingShare: CKSharePresentation?
+    @State private var showingActivity = false
 
     var body: some View {
         ZStack {
@@ -27,12 +37,34 @@ struct ListDetailView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 if case .list = source {
-                    Button {
-                        showingAddTask = true
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundStyle(Tokens.Color.accent2)
+                    HStack(spacing: Tokens.Space.sm) {
+                        if case .list(let list) = source, list.isShared {
+                            Button {
+                                showingActivity = true
+                            } label: {
+                                Image(systemName: "clock.arrow.circlepath")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundStyle(Tokens.Color.accent2)
+                            }
+                            .accessibilityLabel("Recent activity")
+                        }
+                        if case .list(let list) = source {
+                            Button {
+                                Task { await openShareSheet(for: list) }
+                            } label: {
+                                Image(systemName: list.isShared ? "person.2.fill" : "person.crop.circle.badge.plus")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundStyle(Tokens.Color.accent2)
+                            }
+                            .accessibilityLabel(list.isShared ? "Manage sharing" : "Share list")
+                        }
+                        Button {
+                            showingAddTask = true
+                        } label: {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundStyle(Tokens.Color.accent2)
+                        }
                     }
                 }
             }
@@ -44,6 +76,36 @@ struct ListDetailView: View {
             if case .list(let list) = source {
                 AddTaskSheet(defaultList: list)
             }
+        }
+        #if canImport(UIKit)
+        .sheet(item: $presentingShare) { presentation in
+            CloudSharingControllerView(share: presentation.share, container: presentation.container)
+                .ignoresSafeArea()
+        }
+        #endif
+        .sheet(isPresented: $showingActivity) {
+            if case .list(let list) = source {
+                RecentActivitySheet(list: list)
+            }
+        }
+    }
+
+    // MARK: Sharing entry point
+
+    private func openShareSheet(for list: TaskList) async {
+        Haptics.tap()
+        let service = CloudKitSharingService.shared
+        do {
+            let result: (CKShare, CKContainer)
+            if let existing = await service.existingShare(for: list) {
+                result = (existing, CKContainer(identifier: CadenceContainer.cloudContainerID))
+            } else {
+                let ownerName = "Tripp" // TODO: pull from iCloud identity once available
+                result = try await service.makeShare(for: list, ownerName: ownerName)
+            }
+            presentingShare = CKSharePresentation(share: result.0, container: result.1)
+        } catch {
+            NSLog("[Cadence-Share] error opening share sheet: %@", error.localizedDescription)
         }
     }
 

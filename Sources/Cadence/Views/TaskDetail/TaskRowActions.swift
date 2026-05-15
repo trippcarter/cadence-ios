@@ -60,6 +60,7 @@ struct TaskRowActionContainer<Content: View>: View {
                     let taskID = task.id
                     let mirroredEventId = task.mirroredEventId
                     let mirrorCalendarId = task.mirrorCalendarId
+                    ActivityLogger.record(.deleted, for: task, in: modelContext)
                     modelContext.delete(task)
                     try? modelContext.save()
                     Task {
@@ -98,6 +99,9 @@ struct TaskRowActionContainer<Content: View>: View {
                 }
                 Haptics.success()
             }
+        }
+        if !wasCompleted {
+            ActivityLogger.record(.completed, for: task, in: modelContext)
         }
         try? modelContext.save()
         Task {

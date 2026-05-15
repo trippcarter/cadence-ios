@@ -25,7 +25,7 @@ struct ListsView: View {
                                 source: .list(list),
                                 subtitle: subtitle(for: list),
                                 taskCount: openTaskCount(for: list),
-                                sharedAvatars: list.name == "Joint Business" ? 2 : 0
+                                sharedAvatars: list.isShared ? 2 : 0
                             )
                         }
                         .buttonStyle(.plain)
@@ -105,8 +105,11 @@ struct ListsView: View {
     }
 
     private func subtitle(for list: TaskList) -> String {
+        if list.isShared {
+            return "Shared · tap to manage"
+        }
         if list.name == "Joint Business" {
-            return "Shared · 2 members"
+            return "Private · tap header to invite"
         }
         return "Private"
     }

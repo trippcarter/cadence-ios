@@ -17,7 +17,9 @@ enum AppLaunchArgs {
         return .today
     }
 
-    static var openListName: String? { value(for: "--open-list") }
+    static var openListName: String? {
+        value(for: "--open-list")?.replacingOccurrences(of: "+", with: " ")
+    }
 
     static var openTaskMatching: String? { value(for: "--open-task") }
 

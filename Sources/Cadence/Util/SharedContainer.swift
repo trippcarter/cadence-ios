@@ -32,6 +32,7 @@ enum CadenceContainer {
             TaskList.self,
             ConnectedAccount.self,
             CalendarConfig.self,
+            Activity.self,
             CachedEvent.self
         ])
 
@@ -51,7 +52,8 @@ enum CadenceContainer {
             TaskItem.self,
             TaskList.self,
             ConnectedAccount.self,
-            CalendarConfig.self
+            CalendarConfig.self,
+            Activity.self
         ])
         if let groupURL = FileManager.default.containerURL(
             forSecurityApplicationGroupIdentifier: appGroupID

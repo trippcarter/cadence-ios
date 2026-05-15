@@ -685,6 +685,7 @@ struct TaskDetailSheet: View {
         let taskID = task.id
         let mirroredEventId = task.mirroredEventId
         let mirrorCalendarId = task.mirrorCalendarId
+        ActivityLogger.record(.deleted, for: task, in: modelContext)
         modelContext.delete(task)
         try? modelContext.save()
         Task {
@@ -700,6 +701,7 @@ struct TaskDetailSheet: View {
     }
 
     private func persist() {
+        ActivityLogger.record(.edited, for: task, in: modelContext)
         try? modelContext.save()
         Task {
             await NotificationManager.shared.scheduleReminders(for: task)

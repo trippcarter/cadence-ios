@@ -30,7 +30,8 @@ final class CloudKitSyncManager: ObservableObject {
     @Published private(set) var isSyncing: Bool = false
     @Published private(set) var lastError: SyncError?
 
-    private var hasRegisteredSubscription = false
+    private var hasRegisteredPrivateSubscription = false
+    private var hasRegisteredSharedSubscription = false
 
     private init() {
         self.container = CKContainer(identifier: CadenceContainer.cloudContainerID)
@@ -86,34 +87,41 @@ final class CloudKitSyncManager: ObservableObject {
 
     // MARK: Subscriptions
 
-    /// Register a single subscription on the private database that fires a
-    /// silent push whenever any record in our zone changes. SwiftData
-    /// handles the actual merge — we just want the wake-up so widget
-    /// timelines and the in-app sync indicator stay fresh.
+    /// Register one subscription per database (private + shared) so we get
+    /// silent-push wake-ups for both our own changes and changes that other
+    /// participants make on shared lists. SwiftData handles the actual merge.
     private func registerSubscriptionsIfNeeded() async {
-        guard !hasRegisteredSubscription, accountStatus == .available else { return }
-        let subscriptionID = "cadence.private.changes"
-        let db = container.privateCloudDatabase
+        guard accountStatus == .available else { return }
+        await register(in: container.privateCloudDatabase,
+                       id: "cadence.private.changes",
+                       flag: \.hasRegisteredPrivateSubscription)
+        await register(in: container.sharedCloudDatabase,
+                       id: "cadence.shared.changes",
+                       flag: \.hasRegisteredSharedSubscription)
+    }
 
-        // Look for an existing subscription so we don't duplicate on every launch.
+    private func register(
+        in db: CKDatabase,
+        id subscriptionID: String,
+        flag flagPath: ReferenceWritableKeyPath<CloudKitSyncManager, Bool>
+    ) async {
+        guard !self[keyPath: flagPath] else { return }
         do {
             let existing = try await db.allSubscriptions()
             if existing.contains(where: { $0.subscriptionID == subscriptionID }) {
-                hasRegisteredSubscription = true
+                self[keyPath: flagPath] = true
                 return
             }
-        } catch {
-            // Non-fatal — we'll try to add anyway below.
-        }
+        } catch { /* non-fatal */ }
 
-        let subscription = CKDatabaseSubscription(subscriptionID: subscriptionID)
+        let sub = CKDatabaseSubscription(subscriptionID: subscriptionID)
         let info = CKSubscription.NotificationInfo()
-        info.shouldSendContentAvailable = true // silent push
-        subscription.notificationInfo = info
+        info.shouldSendContentAvailable = true
+        sub.notificationInfo = info
 
         do {
-            _ = try await db.modifySubscriptions(saving: [subscription], deleting: [])
-            hasRegisteredSubscription = true
+            _ = try await db.modifySubscriptions(saving: [sub], deleting: [])
+            self[keyPath: flagPath] = true
         } catch {
             lastError = .subscription(error)
         }

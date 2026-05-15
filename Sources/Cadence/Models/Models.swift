@@ -183,6 +183,9 @@ final class TaskList {
     @Relationship(deleteRule: .cascade, inverse: \TaskItem.list)
     var tasks: [TaskItem]?
 
+    @Relationship(deleteRule: .cascade, inverse: \Activity.list)
+    var activities: [Activity]?
+
     var taskList: [TaskItem] { tasks ?? [] }
 
     init(

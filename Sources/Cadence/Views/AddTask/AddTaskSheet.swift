@@ -302,6 +302,8 @@ struct AddTaskSheet: View {
         )
         modelContext.insert(task)
         try? modelContext.save()
+        ActivityLogger.record(.created, for: task, in: modelContext)
+        try? modelContext.save()
         Haptics.success()
         Task {
             await GoogleCalendarService.shared.syncTaskToCalendar(task)
