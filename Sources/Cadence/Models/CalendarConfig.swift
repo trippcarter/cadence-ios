@@ -7,14 +7,14 @@ import SwiftData
 /// preference.
 @Model
 final class CalendarConfig {
-    @Attribute(.unique) var googleCalendarID: String
-    var name: String
+    var googleCalendarID: String = ""
+    var name: String = ""
     /// Hex color string ("#7C5CFF") as Google sends it. May be overridden by
     /// `colorOverride` which references our palette keys (see ListPalette).
     var defaultColorHex: String?
     /// Optional palette key from ListPalette; nil = use defaultColorHex.
     var colorOverride: String?
-    var isEnabled: Bool
+    var isEnabled: Bool = true
 
     /// ETag from Google's last events.list response — supports If-None-Match
     /// for incremental polls.

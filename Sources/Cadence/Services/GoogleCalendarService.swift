@@ -219,7 +219,7 @@ final class GoogleCalendarService: ObservableObject {
         #endif
 
         // Cascade-delete CachedEvent rows for every calendar on this account.
-        let calendarIDs = Set(account.calendars.map { $0.googleCalendarID })
+        let calendarIDs = Set(account.calendarList.map { $0.googleCalendarID })
         let events = (try? context.fetch(FetchDescriptor<CachedEvent>())) ?? []
         for event in events where calendarIDs.contains(event.calendarID) {
             context.delete(event)
@@ -236,7 +236,7 @@ final class GoogleCalendarService: ObservableObject {
         let payload: CalendarListResponse = try await get(url, token: token)
 
         // Upsert by googleCalendarID.
-        let existing = account.calendars
+        let existing = account.calendarList
         var keptIDs = Set<String>()
         for item in payload.items {
             keptIDs.insert(item.id)
@@ -252,7 +252,8 @@ final class GoogleCalendarService: ObservableObject {
                 )
                 new.account = account
                 context.insert(new)
-                account.calendars.append(new)
+                // Append-or-init the optional relationship array.
+                account.calendars = (account.calendars ?? []) + [new]
             }
         }
         // Remove calendars the user deleted on Google's side.
@@ -260,7 +261,7 @@ final class GoogleCalendarService: ObservableObject {
             context.delete(row)
         }
         try context.save()
-        return account.calendars
+        return account.calendarList
         #else
         throw GoogleCalendarError.notConfigured
         #endif
@@ -300,7 +301,7 @@ final class GoogleCalendarService: ObservableObject {
         let timeMin = isoFormatter.string(from: from)
         let timeMax = isoFormatter.string(from: to)
 
-        for calendarConfig in account.calendars where calendarConfig.isEnabled {
+        for calendarConfig in account.calendarList where calendarConfig.isEnabled {
             var components = URLComponents(string: "https://www.googleapis.com/calendar/v3/calendars/\(percentEncoded(calendarConfig.googleCalendarID))/events")!
             components.queryItems = [
                 .init(name: "timeMin", value: timeMin),

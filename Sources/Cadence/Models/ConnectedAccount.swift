@@ -9,17 +9,19 @@ import SwiftData
 /// per-calendar config.
 @Model
 final class ConnectedAccount {
-    @Attribute(.unique) var id: UUID
+    var id: UUID = UUID()
     /// Provider tag — "google" today. Apple/EventKit additions reuse this column.
-    var provider: String
-    var email: String
+    var provider: String = ""
+    var email: String = ""
     /// Keychain identifier for the corresponding OIDAuthState blob.
-    var keychainID: String
-    var connectedAt: Date
+    var keychainID: String = ""
+    var connectedAt: Date = Date.now
     var lastSyncedAt: Date?
 
     @Relationship(deleteRule: .cascade, inverse: \CalendarConfig.account)
-    var calendars: [CalendarConfig] = []
+    var calendars: [CalendarConfig]?
+
+    var calendarList: [CalendarConfig] { calendars ?? [] }
 
     init(
         id: UUID = UUID(),

@@ -18,7 +18,7 @@ struct TaskDetailSheet: View {
     private var mirrorableCalendars: [CalendarConfig] {
         allAccounts
             .filter { $0.provider == "google" }
-            .flatMap { $0.calendars }
+            .flatMap { $0.calendarList }
             .sorted { $0.name < $1.name }
     }
 
@@ -604,8 +604,8 @@ struct TaskDetailSheet: View {
     // MARK: Subtasks
 
     private var subtasksBlock: some View {
-        let done = task.subtasks.filter { $0.status == .completed }.count
-        let total = task.subtasks.count
+        let done = task.subtaskList.filter { $0.status == .completed }.count
+        let total = task.subtaskList.count
         return VStack(alignment: .leading, spacing: Tokens.Space.sm) {
             HStack {
                 sectionLabel("Subtasks")
@@ -618,15 +618,15 @@ struct TaskDetailSheet: View {
                 }
             }
             VStack(spacing: 0) {
-                ForEach(task.subtasks.sorted(by: { $0.createdAt < $1.createdAt })) { sub in
+                ForEach(task.subtaskList.sorted(by: { $0.createdAt < $1.createdAt })) { sub in
                     SubtaskRow(subtask: sub) {
                         persist()
                     }
-                    if sub !== task.subtasks.last {
+                    if sub !== task.subtaskList.last {
                         Divider().background(Tokens.Color.borderSoft)
                     }
                 }
-                if !task.subtasks.isEmpty {
+                if !task.subtaskList.isEmpty {
                     Divider().background(Tokens.Color.borderSoft)
                 }
                 HStack(spacing: Tokens.Space.md) {

@@ -8,6 +8,7 @@ struct CadenceApp: App {
     @AppStorage(PrefsKey.themeChoice) private var themeRaw: String = ThemeChoice.dark.rawValue
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var notifications = NotificationManager.shared
+    @StateObject private var cloudSync = CloudKitSyncManager.shared
 
     init() {
         do {
@@ -34,10 +35,12 @@ struct CadenceApp: App {
                 .environmentObject(notifications)
                 .task {
                     await notifications.refreshAuthorizationStatus()
+                    await cloudSync.bootstrap()
                     // Background-fetch events on every cold start so cached
                     // events stay roughly within the 15-min freshness budget.
                     await GoogleCalendarService.shared.fetchAllEvents()
                 }
+                .environmentObject(cloudSync)
                 .onOpenURL { url in
                     handleOpenURL(url)
                 }
@@ -49,6 +52,7 @@ struct CadenceApp: App {
                     await notifications.refreshAuthorizationStatus()
                     await notifications.rescheduleEverything(context: container.mainContext)
                     await GoogleCalendarService.shared.fetchAllEvents()
+                    await cloudSync.refreshAccountStatus()
                 }
             }
         }

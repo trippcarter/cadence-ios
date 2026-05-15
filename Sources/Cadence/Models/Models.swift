@@ -33,25 +33,30 @@ enum RolloverPolicy: String, Codable, CaseIterable {
 
 @Model
 final class TaskItem {
-    @Attribute(.unique) var id: UUID
-    var title: String
+    // CloudKit-backed SwiftData requires every attribute to be optional or
+    // have a default value at declaration. To-many relationships must be
+    // optional. The constraints below pre-fill defaults that match init()
+    // so the SwiftData→CoreData migration produces a CloudKit-compatible
+    // schema. We still expose id as a stable Identifiable / lookup key.
+    var id: UUID = UUID()
+    var title: String = ""
     var notes: String?
 
     /// Date+time when present. When `allDay == true`, only the date portion is meaningful.
     var dueDate: Date?
-    var allDay: Bool
+    var allDay: Bool = false
 
-    var priority: Priority
-    var status: TaskStatus
+    var priority: Priority = Priority.none
+    var status: TaskStatus = TaskStatus.open
     var completedAt: Date?
     var snoozeUntil: Date?
 
-    var tags: [String]
+    var tags: [String] = []
     /// Seconds before due date to fire a reminder. `0` = at due time, `-1800` = 30 min before.
-    var reminderOffsets: [TimeInterval]
+    var reminderOffsets: [TimeInterval] = []
 
-    var createdAt: Date
-    var createdBy: String       // CKRecord user ID (string)
+    var createdAt: Date = Date.now
+    var createdBy: String = ""       // CKRecord user ID (string)
     var completedBy: String?
 
     // Recurrence (Phase 7b)
@@ -80,8 +85,13 @@ final class TaskItem {
     var list: TaskList?
     var parent: TaskItem?
 
+    /// Optional to satisfy CloudKit-backed SwiftData. App code reads via
+    /// `task.subtasks ?? []` — see TaskItem.subtaskList helper below.
     @Relationship(deleteRule: .cascade, inverse: \TaskItem.parent)
-    var subtasks: [TaskItem] = []
+    var subtasks: [TaskItem]?
+
+    /// Convenience non-optional accessor that callers use everywhere.
+    var subtaskList: [TaskItem] { subtasks ?? [] }
 
     init(
         id: UUID = UUID(),
@@ -158,20 +168,22 @@ final class TaskItem {
 
 @Model
 final class TaskList {
-    @Attribute(.unique) var id: UUID
-    var name: String
-    var colorKey: String   // palette key — see ListPalette
-    var iconKey: String    // SF Symbol name
-    var sortOrder: Int
-    var rolloverPolicy: RolloverPolicy
-    var defaultReminderOffsets: [TimeInterval]
-    var isHidden: Bool
+    var id: UUID = UUID()
+    var name: String = ""
+    var colorKey: String = "neutral"   // palette key — see ListPalette
+    var iconKey: String = "tray.fill"  // SF Symbol name
+    var sortOrder: Int = 0
+    var rolloverPolicy: RolloverPolicy = RolloverPolicy.on
+    var defaultReminderOffsets: [TimeInterval] = []
+    var isHidden: Bool = false
 
     /// Set when shared via CKShare (Phase 4).
     var shareRecordName: String?
 
     @Relationship(deleteRule: .cascade, inverse: \TaskItem.list)
-    var tasks: [TaskItem] = []
+    var tasks: [TaskItem]?
+
+    var taskList: [TaskItem] { tasks ?? [] }
 
     init(
         id: UUID = UUID(),

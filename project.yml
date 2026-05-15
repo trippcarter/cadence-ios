@@ -23,7 +23,11 @@ settings:
     GENERATE_INFOPLIST_FILE: YES
     INFOPLIST_KEY_CFBundleDisplayName: Cadence
     SWIFT_TREAT_WARNINGS_AS_ERRORS: NO
-    DEVELOPMENT_TEAM: ""
+    # CloudKit requires real signing — set to your paid Apple Developer team
+    # ID (10-char string from developer.apple.com → Membership). Once set,
+    # all three targets (iOS, macOS, widget) auto-sign with it.
+    DEVELOPMENT_TEAM: "756CM5YLW6"
+    CODE_SIGN_STYLE: Automatic
 
 targets:
   Cadence-iOS:
@@ -74,6 +78,9 @@ targets:
             UIWindowSceneSessionRoleApplication:
               - UISceneConfigurationName: Default Configuration
                 UISceneDelegateClassName: ""
+        # CloudKit silent push wakeups need the remote-notification mode.
+        UIBackgroundModes:
+          - remote-notification
         CFBundleURLTypes:
           - CFBundleTypeRole: Editor
             CFBundleURLName: net.mcinnis.cadence.google-oauth

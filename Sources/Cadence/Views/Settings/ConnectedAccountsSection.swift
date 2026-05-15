@@ -103,7 +103,7 @@ struct ConnectedAccountsSection: View {
     }
 
     private func calendarsRow(account: ConnectedAccount) -> some View {
-        let sortedCalendars = account.calendars.sorted { $0.name < $1.name }
+        let sortedCalendars = account.calendarList.sorted { $0.name < $1.name }
         return VStack(alignment: .leading, spacing: Tokens.Space.sm) {
             HStack(spacing: 8) {
                 Image(systemName: "list.bullet")
@@ -232,7 +232,7 @@ struct ConnectedAccountsSection: View {
     private var syncPrefsBlock: some View {
         // Aggregate calendars across all connected Google accounts.
         let enabledCalendars = googleAccounts
-            .flatMap { $0.calendars }
+            .flatMap { $0.calendarList }
             .filter { $0.isEnabled }
             .sorted { $0.name < $1.name }
         return VStack(alignment: .leading, spacing: Tokens.Space.md) {

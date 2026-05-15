@@ -27,7 +27,7 @@ struct TaskRow: View {
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
                     meta
-                    if !task.subtasks.isEmpty {
+                    if !task.subtaskList.isEmpty {
                         subtaskSummary
                     }
                 }
@@ -222,8 +222,8 @@ struct TaskRow: View {
     // MARK: Subtask summary
 
     private var subtaskSummary: some View {
-        let done = task.subtasks.filter { $0.status == .completed }.count
-        let total = task.subtasks.count
+        let done = task.subtaskList.filter { $0.status == .completed }.count
+        let total = task.subtaskList.count
         return HStack(spacing: 4) {
             Image(systemName: "list.bullet.indent")
                 .font(.system(size: 9, weight: .semibold))

@@ -8,6 +8,7 @@ struct TodayView: View {
     private var allEvents: [CachedEvent]
 
     @ObservedObject private var calendarService = GoogleCalendarService.shared
+    @EnvironmentObject private var cloudSync: CloudKitSyncManager
 
     /// Set by RootView via env to flip the selected tab when the user taps
     /// the "Reconnect Google Calendar" banner.
@@ -33,6 +34,13 @@ struct TodayView: View {
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .listRowInsets(EdgeInsets(top: Tokens.Space.md, leading: Tokens.Space.lg, bottom: 0, trailing: Tokens.Space.lg))
+                    }
+
+                    if showsCloudSignInBanner {
+                        cloudSignInBanner
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: Tokens.Space.md, leading: Tokens.Space.lg, bottom: 0, trailing: Tokens.Space.lg))
                     }
 
                     TodayHeader(date: now)
@@ -300,6 +308,43 @@ struct TodayView: View {
     private var showsReconnectBanner: Bool {
         if case .tokenExpired = calendarService.lastError { return true }
         return false
+    }
+
+    private var showsCloudSignInBanner: Bool {
+        cloudSync.accountStatus == .noAccount
+    }
+
+    private var cloudSignInBanner: some View {
+        Button {
+            onRequestSettingsTab?()
+        } label: {
+            HStack(spacing: Tokens.Space.md) {
+                Image(systemName: "cloud.slash.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.amber)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Sign in to iCloud to sync")
+                        .font(Tokens.Font.bodyEmphasis)
+                        .foregroundStyle(Tokens.Color.text)
+                    Text("Your tasks stay on this device until you do.")
+                        .font(Tokens.Font.caption)
+                        .foregroundStyle(Tokens.Color.text3)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.text3)
+            }
+            .padding(.horizontal, Tokens.Space.lg)
+            .padding(.vertical, Tokens.Space.md)
+            .background(Tokens.Color.amber.opacity(0.10))
+            .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous)
+                    .stroke(Tokens.Color.amber.opacity(0.4), lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 

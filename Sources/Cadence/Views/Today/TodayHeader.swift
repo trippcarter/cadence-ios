@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TodayHeader: View {
     let date: Date
+    @EnvironmentObject private var cloudSync: CloudKitSyncManager
 
     var body: some View {
         HStack(alignment: .center) {
@@ -22,7 +23,21 @@ struct TodayHeader: View {
                 }
             }
             Spacer()
+            if cloudSync.isSyncing {
+                syncIndicator
+                    .padding(.trailing, 4)
+            }
             AvatarCluster()
         }
+    }
+
+    /// Hairline-subtle pulsing teal dot while iCloud sync is in flight.
+    private var syncIndicator: some View {
+        Circle()
+            .fill(Tokens.Color.teal)
+            .frame(width: 7, height: 7)
+            .opacity(0.85)
+            .symbolEffect(.pulse, options: .repeating, isActive: true)
+            .accessibilityLabel("Syncing")
     }
 }

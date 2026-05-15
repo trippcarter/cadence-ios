@@ -1,50 +1,96 @@
 import Foundation
 import SwiftData
 
-/// Single source of truth for Cadence's SwiftData container.
-/// Both the main app (`Cadence`) and the widget extension (`CadenceWidget`)
-/// compile this file via project.yml and call `makeContainer()` so they share
-/// one SQLite store mounted at the App Group's container URL.
+/// Single source of truth for Cadence's SwiftData container, now split into
+/// two configurations:
 ///
-/// IMPORTANT: Changing `appGroupID` or `storeName` requires migrating any
-/// pre-existing user data. On first launch under a NEW group identifier,
-/// SwiftData sees an empty schema and re-runs SeedData → real user tasks
-/// would be lost. We accepted this for the pre-1.0 dev environment where
-/// only seed/demo data exists.
+///   1. **Cloud-synced** (TaskItem, TaskList, ConnectedAccount, CalendarConfig)
+///      backed by the user's iCloud Private Database via CloudKit. SwiftData
+///      handles per-field last-write-wins merge automatically.
+///
+///   2. **Local-only** (CachedEvent) — Google Calendar events are derived data
+///      we can always refetch from Google, so syncing them via CloudKit would
+///      waste quota for no benefit. The local config still uses the App Group
+///      container path so the widget extension can read events too.
+///
+/// Both configurations live under the App Group's container URL so the
+/// widget process (which holds its own ModelContext) can mount the same
+/// underlying SQLite files.
 enum CadenceContainer {
 
     static let appGroupID = "group.net.mcinnis.cadence"
     static let storeName  = "Cadence.sqlite"
+    static let localStoreName = "CadenceLocal.sqlite"
+    /// CloudKit container identifier — must match the iCloud capability in
+    /// project.yml + the App ID in the Apple Developer portal.
+    static let cloudContainerID = "iCloud.net.mcinnis.cadence"
 
-    /// Build the shared ModelContainer.
-    ///
-    /// If the App Group entitlement isn't authorized at runtime (e.g., free
-    /// Apple Developer account on a real device), we fall back to a default
-    /// per-app container so the app still functions — at the cost of the
-    /// widget not seeing data. The Simulator bypasses signing checks, so the
-    /// shared path works for screenshot/dev purposes either way.
+    /// Build the shared ModelContainer with cloud + local configurations.
     static func makeContainer() throws -> ModelContainer {
-        let schema = Schema([
+        let unifiedSchema = Schema([
             TaskItem.self,
             TaskList.self,
-            CachedEvent.self,
+            ConnectedAccount.self,
             CalendarConfig.self,
-            ConnectedAccount.self
+            CachedEvent.self
         ])
 
+        let cloudConfig = makeCloudConfig()
+        let localConfig = makeLocalConfig()
+
+        return try ModelContainer(
+            for: unifiedSchema,
+            configurations: [cloudConfig, localConfig]
+        )
+    }
+
+    // MARK: Cloud-synced configuration
+
+    private static func makeCloudConfig() -> ModelConfiguration {
+        let cloudSchema = Schema([
+            TaskItem.self,
+            TaskList.self,
+            ConnectedAccount.self,
+            CalendarConfig.self
+        ])
         if let groupURL = FileManager.default.containerURL(
             forSecurityApplicationGroupIdentifier: appGroupID
         ) {
-            let storeURL = groupURL.appendingPathComponent(storeName)
-            let config = ModelConfiguration(
-                schema: schema,
-                url: storeURL
+            return ModelConfiguration(
+                "Cadence-Cloud",
+                schema: cloudSchema,
+                url: groupURL.appendingPathComponent(storeName),
+                cloudKitDatabase: .private(cloudContainerID)
             )
-            return try ModelContainer(for: schema, configurations: [config])
-        } else {
-            // Fallback: per-app default container. Widget won't share state.
-            let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-            return try ModelContainer(for: schema, configurations: [config])
         }
+        // No App Group access (free-dev fallback / unsigned dev builds) — use
+        // the default per-app store path. CloudKit sync still works as long
+        // as the iCloud entitlement is honored.
+        return ModelConfiguration(
+            "Cadence-Cloud",
+            schema: cloudSchema,
+            cloudKitDatabase: .private(cloudContainerID)
+        )
+    }
+
+    // MARK: Local-only configuration
+
+    private static func makeLocalConfig() -> ModelConfiguration {
+        let localSchema = Schema([CachedEvent.self])
+        if let groupURL = FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: appGroupID
+        ) {
+            return ModelConfiguration(
+                "Cadence-Local",
+                schema: localSchema,
+                url: groupURL.appendingPathComponent(localStoreName),
+                cloudKitDatabase: .none
+            )
+        }
+        return ModelConfiguration(
+            "Cadence-Local",
+            schema: localSchema,
+            cloudKitDatabase: .none
+        )
     }
 }

@@ -33,6 +33,10 @@ struct SettingsView: View {
                     rowKeyValue("Build", value: buildNumber)
                 }
 
+                section(title: "iCloud sync") {
+                    CloudSyncSection()
+                }
+
                 section(title: "Connected accounts") {
                     ConnectedAccountsSection()
                 }
