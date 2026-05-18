@@ -67,6 +67,15 @@ struct TodayView: View {
                     .listRowInsets(EdgeInsets(top: Tokens.Space.lg, leading: Tokens.Space.lg, bottom: Tokens.Space.md, trailing: Tokens.Space.lg))
                 }
 
+                if !pinnedTasks.isEmpty {
+                    taskSection(
+                        title: "Pinned",
+                        count: pinnedTasks.count,
+                        accent: Tokens.Color.amber,
+                        tasks: pinnedTasks
+                    )
+                }
+
                 if !carriedTasks.isEmpty {
                     taskSection(
                         title: "Carried over",
@@ -82,12 +91,7 @@ struct TodayView: View {
                 }
 
                 if !unscheduledTasks.isEmpty {
-                    taskSection(
-                        title: "Unscheduled",
-                        count: unscheduledTasks.count,
-                        accent: Tokens.Color.text3,
-                        tasks: unscheduledTasks
-                    )
+                    anytimeSection(tasks: unscheduledTasks)
                 }
 
                 if !completedToday.isEmpty {
@@ -99,7 +103,7 @@ struct TodayView: View {
                     )
                 }
 
-                if carriedTasks.isEmpty && timelineItems.isEmpty && unscheduledTasks.isEmpty && completedToday.isEmpty {
+                if pinnedTasks.isEmpty && carriedTasks.isEmpty && timelineItems.isEmpty && unscheduledTasks.isEmpty && completedToday.isEmpty {
                     emptyStateRow
                 }
 
@@ -168,7 +172,7 @@ struct TodayView: View {
                 Group {
                     switch item {
                     case .task(let task):
-                        TaskRowActionContainer(task: task) {
+                        TaskRowActionContainer(task: task, onEdit: { detailTask = task }) {
                             TaskRow(
                                 task: task,
                                 onTitleTap: { detailTask = task }
@@ -196,13 +200,68 @@ struct TodayView: View {
         .listSectionSeparator(.hidden)
     }
 
+    // MARK: Anytime today (Upgrade 1)
+
+    /// Untimed tasks for today. Build 12 rename: "Unscheduled" → "Anytime
+    /// today". When the bucket grows past 5, swap from full-width rows to
+    /// a 2-column compact grid so the list doesn't visually overwhelm.
+    @ViewBuilder
+    private func anytimeSection(tasks: [TaskItem]) -> some View {
+        let useGrid = tasks.count > 5
+        if useGrid {
+            Section {
+                anytimeGrid(tasks: tasks)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 4, leading: Tokens.Space.lg, bottom: 4, trailing: Tokens.Space.lg))
+            } header: {
+                GroupHeader(title: "Anytime today",
+                            count: tasks.count,
+                            accent: Tokens.Color.text2,
+                            trailingLabel: "\(tasks.count) anytime")
+                    .padding(.bottom, 4)
+                    .textCase(nil)
+            }
+            .listSectionSeparator(.hidden)
+        } else {
+            taskSection(
+                title: "Anytime today",
+                count: tasks.count,
+                accent: Tokens.Color.text2,
+                tasks: tasks
+            )
+        }
+    }
+
+    private func anytimeGrid(tasks: [TaskItem]) -> some View {
+        let columns = [
+            GridItem(.flexible(), spacing: Tokens.Space.sm),
+            GridItem(.flexible(), spacing: Tokens.Space.sm)
+        ]
+        return LazyVGrid(columns: columns, spacing: Tokens.Space.sm) {
+            ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
+                TaskRowActionContainer(task: task, onEdit: { detailTask = task }) {
+                    AnytimeGridCard(task: task) {
+                        detailTask = task
+                    }
+                }
+                .opacity(hasAppeared ? 1 : 0)
+                .offset(y: hasAppeared ? 0 : 12)
+                .animation(
+                    .bouncy(duration: 0.5).delay(Double(index) * 0.03),
+                    value: hasAppeared
+                )
+            }
+        }
+    }
+
     // MARK: Section builder
 
     @ViewBuilder
     private func taskSection(title: String, count: Int, accent: Color, tasks: [TaskItem], showsCarriedChip: Bool = false) -> some View {
         Section {
             ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
-                TaskRowActionContainer(task: task) {
+                TaskRowActionContainer(task: task, onEdit: { detailTask = task }) {
                     TaskRow(
                         task: task,
                         showsCarriedOverChip: showsCarriedChip,
@@ -256,9 +315,18 @@ struct TodayView: View {
 
     // MARK: Derived task buckets
 
+    /// Pinned section (Build 12, Upgrade 6). Shows above everything else
+    /// on Today. Pinned tasks are EXCLUDED from the other buckets so the
+    /// user doesn't see them twice.
+    private var pinnedTasks: [TaskItem] {
+        allTasks
+            .filter { $0.isPinned && $0.parent == nil && $0.status != .completed }
+            .sorted(by: taskOrdering)
+    }
+
     private var carriedTasks: [TaskItem] {
         allTasks
-            .filter { $0.isCarriedOver }
+            .filter { $0.isCarriedOver && !$0.isPinned }
             .sorted(by: { ($0.dueDate ?? .distantPast) < ($1.dueDate ?? .distantPast) })
     }
 
@@ -266,6 +334,7 @@ struct TodayView: View {
         allTasks.filter { task in
             task.status == .open
                 && !task.isCarriedOver
+                && !task.isPinned
                 && task.dueDate != nil
                 && Calendar.current.isDateInToday(task.dueDate!)
                 && !task.allDay
@@ -273,13 +342,26 @@ struct TodayView: View {
     }
 
     private var unscheduledTasks: [TaskItem] {
-        allTasks.filter { task in
-            task.status == .open
-                && !task.isCarriedOver
-                && task.dueDate != nil
-                && Calendar.current.isDateInToday(task.dueDate!)
-                && task.allDay
-        }
+        allTasks
+            .filter { task in
+                task.status == .open
+                    && !task.isCarriedOver
+                    && !task.isPinned
+                    && task.dueDate != nil
+                    && Calendar.current.isDateInToday(task.dueDate!)
+                    && task.allDay
+            }
+            .sorted(by: taskOrdering)
+    }
+
+    /// Build 12 sort: explicit sortOrder first (so drag-reorder wins), then
+    /// dueDate, then createdAt as a stable tiebreaker.
+    private func taskOrdering(_ a: TaskItem, _ b: TaskItem) -> Bool {
+        if a.sortOrder != b.sortOrder { return a.sortOrder < b.sortOrder }
+        let aDue = a.dueDate ?? .distantFuture
+        let bDue = b.dueDate ?? .distantFuture
+        if aDue != bDue { return aDue < bDue }
+        return a.createdAt < b.createdAt
     }
 
     private var completedToday: [TaskItem] {

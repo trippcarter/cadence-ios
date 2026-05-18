@@ -92,6 +92,16 @@ final class TaskItem {
     /// field on the CKRecord. Initialized to createdAt for migration.
     var modifiedAt: Date = Date.now
 
+    // Task UX overhaul (Build 12)
+    /// User-controlled ordering within a section. Lower = higher in the list.
+    /// New tasks get max-existing + 1. Drag-to-reorder rewrites this field.
+    /// Ties fall back to dueDate, then createdAt.
+    var sortOrder: Int = 0
+    /// True when the user has explicitly pinned this task to the top of
+    /// Today. Pinned tasks render in their own "Pinned" section above
+    /// Carried over and Anytime today.
+    var isPinned: Bool = false
+
     // Relationships
     var list: TaskList?
     var parent: TaskItem?

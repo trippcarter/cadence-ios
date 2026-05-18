@@ -7,6 +7,10 @@ struct TaskRow: View {
     var showsCarriedOverChip: Bool = false
     /// Tapping the row body (everything except the complete circle) fires this.
     var onTitleTap: (() -> Void)? = nil
+    /// When provided and `.isActive == true`, the row swaps its normal
+    /// tap behavior for a checkmark column + selection toggle. Build 12,
+    /// Upgrade 3 (multi-select mode).
+    var selection: TaskSelectionState? = nil
     @Environment(\.modelContext) private var modelContext
     @Query private var cachedEvents: [CachedEvent]
 
@@ -15,17 +19,38 @@ struct TaskRow: View {
         MirrorDivergence.divergedStart(for: task, among: cachedEvents) != nil
     }
 
+    private var isInSelectionMode: Bool {
+        selection?.isActive ?? false
+    }
+
+    private var isSelected: Bool {
+        selection?.contains(task) ?? false
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: Tokens.Space.md) {
-            completeButton
-            Button(action: { onTitleTap?() }) {
+            if isInSelectionMode {
+                selectionCircle
+                    .transition(.move(edge: .leading).combined(with: .opacity))
+            } else {
+                completeButton
+            }
+            Button(action: handleTap) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(task.title)
-                        .font(Tokens.Font.taskTitle)
-                        .foregroundStyle(task.status == .completed ? Tokens.Color.text3 : Tokens.Color.text)
-                        .strikethrough(task.status == .completed, color: Tokens.Color.text3)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        if task.isPinned {
+                            Image(systemName: "star.fill")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(Tokens.Color.amber)
+                                .accessibilityLabel("Pinned")
+                        }
+                        Text(task.title)
+                            .font(Tokens.Font.taskTitle)
+                            .foregroundStyle(task.status == .completed ? Tokens.Color.text3 : Tokens.Color.text)
+                            .strikethrough(task.status == .completed, color: Tokens.Color.text3)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                    }
                     meta
                     if !task.subtaskList.isEmpty {
                         subtaskSummary
@@ -35,7 +60,7 @@ struct TaskRow: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .disabled(onTitleTap == nil)
+            .disabled(onTitleTap == nil && !isInSelectionMode)
         }
         .padding(.vertical, Tokens.Space.md)
         .padding(.horizontal, Tokens.Space.lg)
@@ -43,7 +68,8 @@ struct TaskRow: View {
         .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous)
-                .stroke(Tokens.Color.borderSoft, lineWidth: 0.5)
+                .stroke(isSelected ? Tokens.Color.accent : Tokens.Color.borderSoft,
+                        lineWidth: isSelected ? 1.4 : 0.5)
         )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
@@ -68,6 +94,35 @@ struct TaskRow: View {
             parts.append("carried over")
         }
         return parts.joined(separator: ", ")
+    }
+
+    // MARK: Selection circle (multi-select mode)
+
+    private var selectionCircle: some View {
+        ZStack {
+            Circle()
+                .strokeBorder(isSelected ? Tokens.Color.accent : Tokens.Color.text3.opacity(0.5),
+                              lineWidth: 1.5)
+                .frame(width: 22, height: 22)
+            if isSelected {
+                Circle()
+                    .fill(Tokens.Color.accent)
+                    .frame(width: 22, height: 22)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+        }
+        .padding(.top, 1)
+        .accessibilityLabel(isSelected ? "Selected" : "Not selected")
+    }
+
+    private func handleTap() {
+        if isInSelectionMode {
+            selection?.toggle(task)
+        } else {
+            onTitleTap?()
+        }
     }
 
     // MARK: Complete circle

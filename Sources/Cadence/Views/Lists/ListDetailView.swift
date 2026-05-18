@@ -19,9 +19,10 @@ struct ListDetailView: View {
     @State private var showingAddTask = false
     @State private var presentingShare: CKSharePresentation?
     @State private var showingActivity = false
+    @StateObject private var selection = TaskSelectionState()
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .bottom) {
             Tokens.Color.bg.ignoresSafeArea()
 
             if filteredTasks.isEmpty {
@@ -29,14 +30,36 @@ struct ListDetailView: View {
             } else {
                 taskList
             }
+
+            if selection.isActive && !selection.selectedIDs.isEmpty {
+                BatchActionBar(selection: selection, allTasks: filteredTasks)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
-        .navigationTitle(source.displayName)
+        .animation(.bouncy(duration: 0.4), value: selection.isActive)
+        .animation(.smooth(duration: 0.25), value: selection.selectedIDs.count)
+        .navigationTitle(selection.isActive
+                         ? "\(selection.selectedCount) Selected"
+                         : source.displayName)
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(Tokens.Color.bg, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                if case .list = source {
+            if selection.isActive {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Select All") {
+                        selection.selectAll(filteredTasks)
+                    }
+                    .foregroundStyle(Tokens.Color.accent2)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        selection.cancel()
+                    }
+                    .foregroundStyle(Tokens.Color.accent2)
+                }
+            } else if case .list = source {
+                ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: Tokens.Space.sm) {
                         if case .list(let list) = source, list.isShared {
                             Button {
@@ -58,6 +81,14 @@ struct ListDetailView: View {
                             }
                             .accessibilityLabel(list.isShared ? "Manage sharing" : "Share list")
                         }
+                        Button {
+                            selection.enter()
+                        } label: {
+                            Image(systemName: "checklist")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(Tokens.Color.accent2)
+                        }
+                        .accessibilityLabel("Select tasks")
                         Button {
                             showingAddTask = true
                         } label: {
@@ -116,11 +147,12 @@ struct ListDetailView: View {
             ForEach(groupedTasks, id: \.0) { bucket, tasks in
                 Section {
                     ForEach(tasks) { task in
-                        TaskRowActionContainer(task: task) {
+                        TaskRowActionContainer(task: task, onEdit: { detailTask = task }) {
                             TaskRow(
                                 task: task,
                                 showsCarriedOverChip: bucket == .overdue,
-                                onTitleTap: { detailTask = task }
+                                onTitleTap: { detailTask = task },
+                                selection: selection
                             )
                         }
                         .listRowBackground(Color.clear)
