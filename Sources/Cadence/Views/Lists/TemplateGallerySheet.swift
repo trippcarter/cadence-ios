@@ -1,25 +1,26 @@
 import SwiftUI
 import SwiftData
 
-/// "Quick start" template chooser. Auto-presents once after first sign-in
-/// (controlled by `PrefsKey.hasSeenTemplateGallery`); also reachable any
-/// time via the Lists tab's "From template" button.
+/// "Quick start" template chooser. Auto-presents once after the first
+/// successful sign-in for a given Apple ID on this device (keyed per-user
+/// via `UserScopedPrefs.hasSeenTemplateGallery`). Also reachable any time
+/// via the Lists tab's "From template" button.
 ///
-/// User can tap multiple template cards in a single session — each one
-/// inserts a TaskList + its starter TaskItems immediately, so the user
-/// can see their workspace fill out as they pick. "Done" dismisses the
-/// sheet and stamps the seen flag.
+/// Build 11 rewrite: tap-to-toggle multi-select. Cards no longer auto-insert
+/// on tap — the user picks N cards, then commits with "Create N lists" at
+/// the bottom. "Skip" dismisses without creating anything. Either action
+/// stamps the seen flag so we don't auto-present again.
 struct TemplateGallerySheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @AppStorage(PrefsKey.hasSeenTemplateGallery) private var hasSeen: Bool = false
+    @EnvironmentObject private var authSession: AuthSession
 
     @State private var selectedCategory: TemplateLibrary.Category = .personal
-    @State private var addedTemplateIDs: Set<String> = []
+    @State private var selectedTemplateIDs: Set<String> = []
 
     var body: some View {
         NavigationStack {
-            ZStack {
+            ZStack(alignment: .bottom) {
                 Tokens.Color.bg.ignoresSafeArea()
                 ScrollView {
                     VStack(alignment: .leading, spacing: Tokens.Space.lg) {
@@ -33,33 +34,16 @@ struct TemplateGallerySheet: View {
                         templateGrid
                             .padding(.horizontal, Tokens.Space.lg)
 
-                        if !addedTemplateIDs.isEmpty {
-                            addedRecap
-                                .padding(.horizontal, Tokens.Space.lg)
-                        }
-
-                        Color.clear.frame(height: 80)
+                        // Leave room for the docked bottom action bar.
+                        Color.clear.frame(height: 100)
                     }
                 }
                 .scrollIndicators(.hidden)
+
+                actionBar
             }
             .navigationTitle("Quick start")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Start fresh") {
-                        finish()
-                    }
-                    .foregroundStyle(Tokens.Color.text2)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(addedTemplateIDs.isEmpty ? "Skip" : "Done") {
-                        finish()
-                    }
-                    .font(Tokens.Font.bodyEmphasis)
-                    .foregroundStyle(Tokens.Color.accent2)
-                }
-            }
             .preferredColorScheme(.dark)
         }
     }
@@ -71,7 +55,7 @@ struct TemplateGallerySheet: View {
             Text("Pick a starting point")
                 .font(.system(size: 26, weight: .bold))
                 .foregroundStyle(Tokens.Color.text)
-            Text("Tap any template to add it to your lists. Tap several if you want — you can edit or delete them later.")
+            Text("Tap any template to select it. Pick as many as you want — your lists fill in when you tap Create.")
                 .font(Tokens.Font.body)
                 .foregroundStyle(Tokens.Color.text3)
         }
@@ -116,7 +100,7 @@ struct TemplateGallerySheet: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: Templates grid
+    // MARK: Template grid
 
     private var templateGrid: some View {
         let columns = [GridItem(.flexible(), spacing: Tokens.Space.sm),
@@ -130,10 +114,10 @@ struct TemplateGallerySheet: View {
     }
 
     private func templateCard(_ template: TemplateLibrary.Template) -> some View {
-        let added = addedTemplateIDs.contains(template.id)
+        let isSelected = selectedTemplateIDs.contains(template.id)
         let tint = ListPalette.color(for: template.colorKey)
         return Button {
-            addTemplate(template)
+            toggle(template)
         } label: {
             VStack(alignment: .leading, spacing: Tokens.Space.sm) {
                 HStack {
@@ -146,12 +130,7 @@ struct TemplateGallerySheet: View {
                             .foregroundStyle(tint)
                     }
                     Spacer()
-                    if added {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(Tokens.Color.mint)
-                            .transition(.scale.combined(with: .opacity))
-                    }
+                    selectionIndicator(isSelected: isSelected, tint: tint)
                 }
                 Text(template.name)
                     .font(Tokens.Font.bodyEmphasis)
@@ -167,69 +146,151 @@ struct TemplateGallerySheet: View {
             .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous)
-                    .stroke(added ? Tokens.Color.mint : Tokens.Color.borderSoft, lineWidth: added ? 1 : 0.5)
+                    .stroke(isSelected ? Tokens.Color.accent : Tokens.Color.borderSoft,
+                            lineWidth: isSelected ? 1.4 : 0.5)
             )
-            .scaleEffect(added ? 0.96 : 1.0)
-            .animation(.bouncy(duration: 0.35), value: added)
+            .scaleEffect(isSelected ? 1.02 : 1.0)
+            .animation(.bouncy(duration: 0.35), value: isSelected)
         }
         .buttonStyle(.plain)
-        .disabled(added)
     }
 
-    private var addedRecap: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "checkmark.seal.fill")
-                .foregroundStyle(Tokens.Color.mint)
-            Text("\(addedTemplateIDs.count) list\(addedTemplateIDs.count == 1 ? "" : "s") added")
-                .font(Tokens.Font.bodyEmphasis)
-                .foregroundStyle(Tokens.Color.text)
-            Spacer()
+    private func selectionIndicator(isSelected: Bool, tint: Color) -> some View {
+        ZStack {
+            Circle()
+                .stroke(isSelected ? Tokens.Color.accent : Tokens.Color.borderSoft, lineWidth: isSelected ? 0 : 1)
+                .frame(width: 22, height: 22)
+            if isSelected {
+                Circle()
+                    .fill(Tokens.Color.accent)
+                    .frame(width: 22, height: 22)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.white)
+                    .transition(.scale.combined(with: .opacity))
+            }
         }
-        .padding(.horizontal, Tokens.Space.md)
-        .padding(.vertical, Tokens.Space.md)
-        .background(Tokens.Color.mint.opacity(0.12))
-        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous)
-                .stroke(Tokens.Color.mint.opacity(0.4), lineWidth: 0.5)
+        .animation(.bouncy(duration: 0.3), value: isSelected)
+    }
+
+    // MARK: Bottom action bar
+
+    private var actionBar: some View {
+        HStack(spacing: Tokens.Space.md) {
+            Button {
+                Haptics.tap()
+                finish(creating: false)
+            } label: {
+                Text("Skip")
+                    .font(Tokens.Font.bodyEmphasis)
+                    .foregroundStyle(Tokens.Color.text2)
+                    .padding(.vertical, Tokens.Space.md)
+                    .padding(.horizontal, Tokens.Space.lg)
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+
+            Button {
+                Haptics.success()
+                finish(creating: true)
+            } label: {
+                HStack(spacing: 6) {
+                    Text(selectedTemplateIDs.isEmpty
+                         ? "Create"
+                         : "Create \(selectedTemplateIDs.count) list\(selectedTemplateIDs.count == 1 ? "" : "s")")
+                        .font(Tokens.Font.bodyEmphasis)
+                        .foregroundStyle(.white)
+                }
+                .padding(.vertical, Tokens.Space.md)
+                .padding(.horizontal, Tokens.Space.xl)
+                .background(
+                    LinearGradient(
+                        colors: selectedTemplateIDs.isEmpty
+                            ? [Tokens.Color.text3.opacity(0.4), Tokens.Color.text3.opacity(0.4)]
+                            : [Tokens.Color.accent, Tokens.Color.accentDeep],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous))
+                .shadow(color: selectedTemplateIDs.isEmpty ? .clear : Tokens.Color.accentGlow,
+                        radius: 12, x: 0, y: 4)
+            }
+            .buttonStyle(.plain)
+            .disabled(selectedTemplateIDs.isEmpty)
+            .opacity(selectedTemplateIDs.isEmpty ? 0.6 : 1.0)
+        }
+        .padding(.horizontal, Tokens.Space.lg)
+        .padding(.top, Tokens.Space.md)
+        .padding(.bottom, Tokens.Space.md)
+        .background(
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial)
+                Tokens.Color.bg.opacity(0.55)
+            }
+            .overlay(alignment: .top) {
+                Rectangle().fill(Tokens.Color.border).frame(height: 0.5)
+            }
+            .ignoresSafeArea(edges: .bottom)
         )
     }
 
     // MARK: Actions
 
-    private func addTemplate(_ template: TemplateLibrary.Template) {
-        guard !addedTemplateIDs.contains(template.id) else { return }
-        Haptics.success()
+    private func toggle(_ template: TemplateLibrary.Template) {
+        Haptics.tap()
+        withAnimation(.bouncy(duration: 0.35)) {
+            if selectedTemplateIDs.contains(template.id) {
+                selectedTemplateIDs.remove(template.id)
+            } else {
+                selectedTemplateIDs.insert(template.id)
+            }
+        }
+    }
 
+    private func finish(creating: Bool) {
+        if creating {
+            createSelectedLists()
+        }
+        if let identifier = authSession.state.user?.appleUserIdentifier {
+            UserScopedPrefs.setHasSeenTemplateGallery(true, for: identifier)
+        } else {
+            // No-auth case (e.g. simulator with no sign-in) — fall back to
+            // the legacy device-wide flag so we don't keep re-prompting.
+            UserDefaults.standard.set(true, forKey: PrefsKey.hasSeenTemplateGallery)
+        }
+        dismiss()
+    }
+
+    private func createSelectedLists() {
         let descriptor = FetchDescriptor<TaskList>(
             sortBy: [SortDescriptor(\TaskList.sortOrder, order: .reverse)]
         )
-        let highestSort = (try? modelContext.fetch(descriptor).first?.sortOrder) ?? 0
+        var highestSort = (try? modelContext.fetch(descriptor).first?.sortOrder) ?? 0
 
-        let newList = TaskList(
-            name: template.name,
-            colorKey: template.colorKey,
-            iconKey: template.iconKey,
-            sortOrder: highestSort + 1,
-            isSeeded: false
-        )
-        modelContext.insert(newList)
+        // Materialize selected templates in user-tap order via the cached
+        // category sweep so user-perceived ordering is intuitive.
+        let allTemplates = TemplateLibrary.Category.allCases.flatMap { TemplateLibrary.templates(in: $0) }
+        let templatesToCreate = allTemplates.filter { selectedTemplateIDs.contains($0.id) }
 
-        for title in template.starterTasks {
-            let task = TaskItem(title: title, list: newList)
-            modelContext.insert(task)
+        for template in templatesToCreate {
+            highestSort += 1
+            let newList = TaskList(
+                name: template.name,
+                colorKey: template.colorKey,
+                iconKey: template.iconKey,
+                sortOrder: highestSort,
+                isSeeded: false
+            )
+            modelContext.insert(newList)
+            for title in template.starterTasks {
+                let task = TaskItem(title: title, list: newList)
+                modelContext.insert(task)
+            }
         }
 
         try? modelContext.save()
         WidgetReloader.reload()
-
-        withAnimation(.bouncy(duration: 0.35)) {
-            addedTemplateIDs.insert(template.id)
-        }
-    }
-
-    private func finish() {
-        hasSeen = true
-        dismiss()
     }
 }

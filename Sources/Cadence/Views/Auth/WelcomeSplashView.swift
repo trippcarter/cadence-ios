@@ -2,8 +2,13 @@ import SwiftUI
 
 /// Transient overlay shown when AuthSession transitions to .signedIn for
 /// the first time this launch. Self-dismisses after ~1.5 seconds.
+///
+/// Copy: "Welcome, X" on a first-ever sign-in for this Apple ID;
+/// "Welcome back, X" if the per-identifier name cache had a `firstSeenAt`
+/// entry before this sign-in.
 struct WelcomeSplashView: View {
     let firstName: String
+    let isReturning: Bool
     var onDismiss: () -> Void
 
     @State private var iconScale: CGFloat = 0.4
@@ -39,7 +44,7 @@ struct WelcomeSplashView: View {
                 .opacity(iconOpacity)
 
                 VStack(spacing: 6) {
-                    Text("Welcome,")
+                    Text(isReturning ? "Welcome back," : "Welcome,")
                         .font(.system(size: 22, weight: .medium))
                         .foregroundStyle(Tokens.Color.text3)
                     Text(firstName)

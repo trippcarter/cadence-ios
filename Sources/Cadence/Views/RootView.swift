@@ -9,9 +9,13 @@ struct RootView: View {
     @State private var didHandleLaunchArgs = false
 
     @AppStorage(PrefsKey.hasOnboarded) private var hasOnboarded: Bool = false
-    @AppStorage(PrefsKey.hasSeenTemplateGallery) private var hasSeenTemplateGallery: Bool = false
 
     @State private var showingTemplateGalleryFromAuth = false
+    @State private var showingNamePromptFromAuth = false
+    /// Latched whenever a sign-in flagged `needsNamePrompt`, used to drive
+    /// the post-name-prompt template gallery presentation. Without this we'd
+    /// race the AuthSession flag, which clears on commit.
+    @State private var pendingTemplateGalleryAfterName = false
 
     @EnvironmentObject private var notifications: NotificationManager
     @EnvironmentObject private var authSession: AuthSession
@@ -37,7 +41,10 @@ struct RootView: View {
         .animation(.smooth(duration: 0.45), value: authSession.state)
         .overlay {
             if authSession.showWelcomeSplash, let user = authSession.state.user {
-                WelcomeSplashView(firstName: user.firstNameOrFallback) {
+                WelcomeSplashView(
+                    firstName: user.firstNameOrFallback,
+                    isReturning: authSession.lastSignInWasReturning
+                ) {
                     withAnimation(.smooth(duration: 0.45)) {
                         authSession.showWelcomeSplash = false
                     }
@@ -52,16 +59,36 @@ struct RootView: View {
         .onChange(of: authSession.state) { oldState, newState in
             NSLog("[Cadence-Auth] RootView observed state change: isSignedIn=%@",
                   newState.isSignedIn ? "true" : "false")
-            // First successful sign-in for this device: auto-present the
-            // Quick-start template gallery. Skipping it (or completing it)
-            // sets hasSeenTemplateGallery so we don't re-present.
-            if !oldState.isSignedIn, newState.isSignedIn, !hasSeenTemplateGallery {
-                // 0.6s delay so the welcome splash + main-app fade settle
-                // before we cover the screen with another sheet.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            guard !oldState.isSignedIn,
+                  case .signedIn(let user) = newState else { return }
+
+            let needsNamePrompt = authSession.needsNamePrompt
+            let hasSeenGallery = UserScopedPrefs.hasSeenTemplateGallery(for: user.appleUserIdentifier)
+
+            // 0.6s delay so the welcome splash + main-app fade settle
+            // before we cover the screen with another sheet.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                if needsNamePrompt {
+                    // Name prompt first; the template gallery (if needed)
+                    // will be presented after the name prompt dismisses.
+                    pendingTemplateGalleryAfterName = !hasSeenGallery
+                    showingNamePromptFromAuth = true
+                } else if !hasSeenGallery {
                     showingTemplateGalleryFromAuth = true
                 }
             }
+        }
+        .sheet(isPresented: $showingNamePromptFromAuth, onDismiss: {
+            // Chain: after the name prompt closes, present the template
+            // gallery if it was queued.
+            if pendingTemplateGalleryAfterName {
+                pendingTemplateGalleryAfterName = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    showingTemplateGalleryFromAuth = true
+                }
+            }
+        }) {
+            DisplayNameEditSheet(mode: .firstRun)
         }
         .sheet(isPresented: $showingTemplateGalleryFromAuth) {
             TemplateGallerySheet()

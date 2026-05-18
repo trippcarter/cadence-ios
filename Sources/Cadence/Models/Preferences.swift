@@ -23,7 +23,55 @@ enum PrefsKey {
     /// post-sign-in template gallery, so we don't auto-present it again.
     /// Users can still open it manually via the Lists tab "From template"
     /// button at any time.
+    ///
+    /// NOTE: Build 11 onward — this is keyed per Apple-Sign-In identifier
+    /// via `UserScopedPrefs.hasSeenTemplateGallery(for:)`. The bare key
+    /// here is the legacy device-wide flag, still used as a migration
+    /// fallback for users upgrading from Build 10.
     static let hasSeenTemplateGallery   = "hasSeenTemplateGallery"
+}
+
+/// Per-Apple-Sign-In-identifier preferences. Different users on the same
+/// device each get their own template-gallery-seen flag and editable
+/// display name. Keys are composed as `<prefKey>_<identifier>`.
+///
+/// Added in Build 11 to fix:
+///   - Bug 1: template gallery re-appearing for a second user on the same
+///     device because the seen flag was device-wide.
+///   - Bug 3: user-set display name that survives across signOut/signIn
+///     and is per-account (so two users on one device don't share a name).
+enum UserScopedPrefs {
+
+    // MARK: Template gallery
+
+    static func hasSeenTemplateGallery(for identifier: String) -> Bool {
+        UserDefaults.standard.bool(forKey: "hasSeenTemplateGallery_\(identifier)")
+    }
+
+    static func setHasSeenTemplateGallery(_ value: Bool, for identifier: String) {
+        UserDefaults.standard.set(value, forKey: "hasSeenTemplateGallery_\(identifier)")
+    }
+
+    // MARK: User-set display name
+
+    /// The name the user explicitly chose (or accepted) in Settings →
+    /// Display Name OR in the first-run name prompt. Highest priority in
+    /// the displayName resolution chain — overrides Apple's fullName even
+    /// if Apple supplied one.
+    static func userDisplayName(for identifier: String) -> String? {
+        let raw = UserDefaults.standard.string(forKey: "userDisplayName_\(identifier)")
+        guard let raw, !raw.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
+        return raw
+    }
+
+    static func setUserDisplayName(_ value: String?, for identifier: String) {
+        let trimmed = value?.trimmingCharacters(in: .whitespaces)
+        if let trimmed, !trimmed.isEmpty {
+            UserDefaults.standard.set(trimmed, forKey: "userDisplayName_\(identifier)")
+        } else {
+            UserDefaults.standard.removeObject(forKey: "userDisplayName_\(identifier)")
+        }
+    }
 }
 
 /// Three-way theme picker. Applied at the app root via .preferredColorScheme.

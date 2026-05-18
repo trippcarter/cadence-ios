@@ -11,9 +11,9 @@ struct AuthenticatedUser: Codable, Equatable {
     /// Apple's stable per-device-per-app identifier (never the email).
     /// Treat as opaque.
     let appleUserIdentifier: String
-    /// Display name. Apple only sends fullName on the FIRST sign-in
-    /// (when the user consents). Subsequent signs return nil — we keep
-    /// the original.
+    /// Display name from Apple's credential. Apple only sends fullName on
+    /// the FIRST sign-in (when the user consents). Subsequent signs return
+    /// nil — we keep the original via the per-identifier name cache.
     var firstName: String?
     var lastName: String?
     /// Email or Apple's privaterelay.appleid.com address when the user
@@ -29,34 +29,55 @@ struct AuthenticatedUser: Codable, Equatable {
     /// the per-identifier Keychain cache so "Member since" stays stable
     /// across sign-out / sign-in cycles for the same Apple ID.
     var memberSince: Date?
+    /// User-set display name from Settings → Display Name OR from the
+    /// first-run "What should we call you?" prompt. Source of truth is
+    /// UserDefaults via `UserScopedPrefs.userDisplayName(for:)`. This
+    /// field is a hydrated copy refreshed at sign-in / on user edit so the
+    /// in-memory view models can react via @Published.
+    var userSetDisplayName: String?
 
+    /// Display name resolution (Build 11 onward). Priority:
+    ///   1. User-set name (Settings → Display Name, or first-run prompt)
+    ///   2. Apple's firstName + lastName (from initial credential)
+    ///   3. Email local-part with first letter capitalized
+    ///      ("tripp@mcinnis.net" → "Tripp"). Skipped if the email is a
+    ///      privaterelay alias (those are noise).
+    ///   4. "Cadence User" — true last resort.
     var displayName: String {
+        if let userSet = userSetDisplayName?.trimmingCharacters(in: .whitespaces),
+           !userSet.isEmpty {
+            return userSet
+        }
         let parts = [firstName, lastName].compactMap { $0 }.filter { !$0.isEmpty }
         if !parts.isEmpty { return parts.joined(separator: " ") }
-        if let email, !email.isEmpty, !isUsingHiddenEmail { return email }
-        // No name and no usable email — Apple withheld both, and our name
-        // cache had no prior entry for this identifier. Use a friendly
-        // placeholder instead of leaking the raw appleUserIdentifier prefix
-        // into the UI.
-        return "Signed in with Apple"
+        if let email, !email.isEmpty, !isUsingHiddenEmail,
+           let derived = emailDerivedName(from: email) {
+            return derived
+        }
+        return "Cadence User"
     }
 
+    /// First-word fallback used by the welcome splash. "there" when nothing
+    /// resolves — used as the second word ("Welcome, there") not first.
     var firstNameOrFallback: String {
-        if let firstName, !firstName.isEmpty { return firstName }
-        return "there"
+        let resolved = displayName
+        if resolved == "Cadence User" { return "there" }
+        return resolved.split(separator: " ").first.map(String.init) ?? "there"
     }
 
-    /// 2-character initials for the avatar badge. Prefers first+last; falls
-    /// back to first letter of email, then "C" (for Cadence).
+    /// 2-character initials derived from the resolved displayName.
+    /// Rules: 2+ words → first letter of first + first letter of last;
+    /// 1 word → first 2 chars. "C" when nothing resolves.
     var avatarInitials: String {
-        if let first = firstName?.first, let last = lastName?.first {
-            return "\(first)\(last)".uppercased()
+        let name = displayName
+        let words = name.split(separator: " ").map(String.init).filter { !$0.isEmpty }
+        if words.count >= 2 {
+            let first = words[0].first.map(String.init) ?? ""
+            let second = words[1].first.map(String.init) ?? ""
+            return (first + second).uppercased()
         }
-        if let first = firstName?.first {
-            return String(first).uppercased()
-        }
-        if let email = email?.first {
-            return String(email).uppercased()
+        if let only = words.first {
+            return String(only.prefix(2)).uppercased()
         }
         return "C"
     }
@@ -72,6 +93,35 @@ struct AuthenticatedUser: Codable, Equatable {
     /// True when the email is one of Apple's privaterelay.appleid.com addresses.
     var isUsingHiddenEmail: Bool {
         email?.lowercased().contains("@privaterelay.appleid.com") == true
+    }
+
+    /// True when the only thing we can derive is the "Cadence User" fallback —
+    /// i.e., Apple gave us no name, the email is a private relay (or nil),
+    /// and the user hasn't set a display name yet. UI uses this to decide
+    /// whether to present the first-run name prompt.
+    var needsDisplayNameSetup: Bool {
+        if let userSet = userSetDisplayName, !userSet.isEmpty { return false }
+        let hasAppleName = (firstName.map { !$0.isEmpty } ?? false)
+            || (lastName.map { !$0.isEmpty } ?? false)
+        if hasAppleName { return false }
+        if let email, !email.isEmpty, !isUsingHiddenEmail { return false }
+        return true
+    }
+
+    private func emailDerivedName(from email: String) -> String? {
+        let local = email.split(separator: "@").first.map(String.init) ?? ""
+        let cleaned = local
+            .replacingOccurrences(of: ".", with: " ")
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+        let words = cleaned.split(separator: " ").map(String.init).filter { !$0.isEmpty }
+        guard !words.isEmpty else { return nil }
+        return words
+            .map { word in
+                guard let first = word.first else { return word }
+                return String(first).uppercased() + word.dropFirst()
+            }
+            .joined(separator: " ")
     }
 }
 
@@ -124,16 +174,36 @@ final class AuthSession: ObservableObject {
     /// "Welcome, <name>" splash. Auto-clears after ~1.5s.
     @Published var showWelcomeSplash: Bool = false
 
+    /// Set on every sign-in so the welcome splash can pick between
+    /// "Welcome, X" (first time) and "Welcome back, X" (returning).
+    /// Inferred from whether the per-identifier cache had a firstSeenAt
+    /// entry BEFORE this sign-in.
+    @Published var lastSignInWasReturning: Bool = false
+
     /// Hint that RootView's SignInView should call out "Pick a different
     /// Apple ID below" — set by Switch Apple ID. Visual only; the actual
     /// chooser is Apple's native sheet that appears when the button is tapped.
     @Published var promptingSwitchAccount: Bool = false
 
+    /// Signal that RootView should present the "What should we call you?"
+    /// first-run name prompt. Set when sign-in completes with no name
+    /// resolvable from any source (Apple withheld it, no email, no
+    /// previously-set user name).
+    @Published var needsNamePrompt: Bool = false
+
     private let cloudContainer = CKContainer(identifier: CadenceContainer.cloudContainerID)
 
     private init() {
-        if let user = loadFromKeychain() {
+        if var user = loadFromKeychain() {
+            // UserDefaults is the source of truth for the user-set display
+            // name; re-hydrate every cold launch in case Keychain is stale
+            // (e.g. the user reinstalled and Keychain reset but UserDefaults
+            // survived).
+            user.userSetDisplayName = UserScopedPrefs.userDisplayName(for: user.appleUserIdentifier)
             self.state = .signedIn(user)
+            NSLog("[DISPLAY-NAME] cold-launch hydrate: source=%@, name=%@",
+                  user.userSetDisplayName != nil ? "user-set" : "credential/email",
+                  user.displayName)
         }
     }
 
@@ -187,14 +257,25 @@ final class AuthSession: ObservableObject {
               resolvedEmail ?? "<nil>",
               "\(resolvedMemberSince)")
 
-        var user = AuthenticatedUser(
+        // User-set name (Settings) overrides everything else. Hydrated from
+        // UserDefaults keyed by identifier so different users on the same
+        // device each get their own name.
+        let userSetName = UserScopedPrefs.userDisplayName(for: identifier)
+
+        let user = AuthenticatedUser(
             appleUserIdentifier: identifier,
             firstName: resolvedFirstName,
             lastName: resolvedLastName,
             email: resolvedEmail,
             iCloudUserRecordName: nil,
-            memberSince: resolvedMemberSince
+            memberSince: resolvedMemberSince,
+            userSetDisplayName: userSetName
         )
+
+        NSLog("[DISPLAY-NAME] sign-in resolved: source=%@, name=%@, initials=%@",
+              displayNameSource(user: user),
+              user.displayName,
+              user.avatarInitials)
 
         // Always update the per-identifier cache — either Apple gave us
         // new name/email (first-sign-in payload) or we're stamping
@@ -208,6 +289,18 @@ final class AuthSession: ObservableObject {
                 firstSeenAt: cached?.firstSeenAt ?? resolvedMemberSince
             )
         )
+
+        // "Returning" vs "new" — detected by whether the per-identifier name
+        // cache already had a firstSeenAt BEFORE this sign-in. Drives the
+        // welcome-splash copy ("Welcome back, X" vs "Welcome, X").
+        let isReturning = (cached?.firstSeenAt != nil)
+        lastSignInWasReturning = isReturning
+        // First-run name prompt — only fires if NOTHING resolves to a real
+        // name. Email-local-part counts as a real name (good enough default).
+        needsNamePrompt = user.needsDisplayNameSetup
+        NSLog("[DISPLAY-NAME] needsNamePrompt=%@, isReturning=%@",
+              needsNamePrompt ? "true" : "false",
+              isReturning ? "true" : "false")
 
         // Capture the current iCloud user record name so future launches can
         // detect when the device's iCloud changed underneath us. Transition
@@ -230,6 +323,39 @@ final class AuthSession: ObservableObject {
                 NSLog("[Cadence-Auth] iCloud record bound: %@", iCloudID)
             }
         }
+    }
+
+    // MARK: Display name editing
+
+    /// Persist a user-set display name and update the live in-memory state.
+    /// Source of truth is UserDefaults via `UserScopedPrefs`, keyed per
+    /// Apple identifier — different users on the same device each get
+    /// their own. Pass nil/empty to clear (resolution falls back through
+    /// Apple's fullName → email local-part → "Cadence User").
+    func setDisplayName(_ newName: String?) {
+        guard case .signedIn(var user) = state else {
+            NSLog("[DISPLAY-NAME] setDisplayName called while signed out — ignoring")
+            return
+        }
+        let trimmed = newName?.trimmingCharacters(in: .whitespaces)
+        UserScopedPrefs.setUserDisplayName(trimmed, for: user.appleUserIdentifier)
+        user.userSetDisplayName = trimmed
+        persist(user)
+        state = .signedIn(user)
+        NSLog("[DISPLAY-NAME] set name to %@ for identifier %@",
+              trimmed ?? "<cleared>",
+              user.appleUserIdentifier)
+    }
+
+    /// For diagnostic logging — which branch of the resolution chain won.
+    private func displayNameSource(user: AuthenticatedUser) -> String {
+        if let userSet = user.userSetDisplayName, !userSet.isEmpty { return "user-set" }
+        if (user.firstName.map { !$0.isEmpty } ?? false)
+            || (user.lastName.map { !$0.isEmpty } ?? false) { return "apple-credential" }
+        if let email = user.email, !email.isEmpty, !user.isUsingHiddenEmail {
+            return "email-local-part"
+        }
+        return "fallback-cadence-user"
     }
 
     // MARK: Sign out

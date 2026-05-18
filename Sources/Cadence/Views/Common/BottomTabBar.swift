@@ -19,14 +19,23 @@ struct BottomTabBar: View {
         }
         .padding(.horizontal, Tokens.Space.md)
         .padding(.top, Tokens.Space.sm)
-        .padding(.bottom, Tokens.Space.md)
-        .background(
-            ZStack {
+        .padding(.bottom, Tokens.Space.sm + 2)
+        .background(alignment: .top) {
+            ZStack(alignment: .top) {
+                // Frosted-glass surface that runs all the way to the bottom of
+                // the screen, including the home-indicator strip below the
+                // safe area inset. Without `.ignoresSafeArea(edges: .bottom)`,
+                // the background would stop where the icons stop and the dark
+                // app bg shows through underneath — that was the "tab bar
+                // floating above the bottom edge" bug Tripp reported.
                 Rectangle().fill(.ultraThinMaterial)
                 Tokens.Color.bg.opacity(0.55)
             }
-            .overlay(Rectangle().fill(Tokens.Color.border).frame(height: 0.5), alignment: .top)
-        )
+            .overlay(alignment: .top) {
+                Rectangle().fill(Tokens.Color.border).frame(height: 0.5)
+            }
+            .ignoresSafeArea(edges: .bottom)
+        }
     }
 
     private func tabButton(_ tab: AppTab, system: String, label: String) -> some View {

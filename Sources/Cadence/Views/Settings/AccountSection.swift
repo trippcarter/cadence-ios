@@ -17,6 +17,7 @@ struct AccountSection: View {
     @EnvironmentObject private var cloudSync: CloudKitSyncManager
     @State private var showingSignOutConfirm = false
     @State private var showingSwitchConfirm = false
+    @State private var showingDisplayNameEdit = false
 
     private var user: AuthenticatedUser? {
         authSession.state.user
@@ -24,6 +25,8 @@ struct AccountSection: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            displayNameRow
+            Divider().background(Tokens.Color.borderSoft)
             accountRow
             Divider().background(Tokens.Color.borderSoft)
             iCloudDiagnosticRow
@@ -31,6 +34,9 @@ struct AccountSection: View {
             signOutRow
             Divider().background(Tokens.Color.borderSoft)
             switchAccountRow
+        }
+        .sheet(isPresented: $showingDisplayNameEdit) {
+            DisplayNameEditSheet(mode: .edit)
         }
         .alert("Sign out of Cadence?", isPresented: $showingSignOutConfirm) {
             Button("Sign Out", role: .destructive) {
@@ -50,6 +56,40 @@ struct AccountSection: View {
         } message: {
             Text("You'll sign out of this account and Apple will ask you which Apple ID to use next. Your existing tasks stay in iCloud and reappear when you sign back in with this account.")
         }
+    }
+
+    /// Build 11: editable display name lives at the top of the Account
+    /// section. Source of truth is UserDefaults via `UserScopedPrefs`,
+    /// keyed per Apple identifier (different users on this device each
+    /// get their own).
+    private var displayNameRow: some View {
+        Button {
+            showingDisplayNameEdit = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "pencil.circle.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.accent2)
+                    .frame(width: 18)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Display Name")
+                        .font(Tokens.Font.bodyEmphasis)
+                        .foregroundStyle(Tokens.Color.text)
+                    Text(user?.displayName ?? "Sign in to set")
+                        .font(Tokens.Font.caption)
+                        .foregroundStyle(Tokens.Color.text3)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.text3)
+            }
+            .padding(.horizontal, Tokens.Space.lg)
+            .padding(.vertical, Tokens.Space.md)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(user == nil)
     }
 
     private var accountRow: some View {
