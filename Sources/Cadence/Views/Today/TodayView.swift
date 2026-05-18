@@ -43,7 +43,7 @@ struct TodayView: View {
                             .listRowInsets(EdgeInsets(top: Tokens.Space.md, leading: Tokens.Space.lg, bottom: 0, trailing: Tokens.Space.lg))
                     }
 
-                    TodayHeader(date: now)
+                    TodayHeader(date: now, onTapAvatar: { onRequestSettingsTab?() })
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .listRowInsets(EdgeInsets(top: Tokens.Space.md, leading: Tokens.Space.lg, bottom: 0, trailing: Tokens.Space.lg))

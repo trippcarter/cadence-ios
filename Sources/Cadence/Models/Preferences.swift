@@ -18,6 +18,12 @@ enum PrefsKey {
     /// When true, new tasks with a specific time auto-toggle isTimeBlocked=true
     /// on save. Default false — opt-in.
     static let autoMirrorTimeBlocked    = "autoMirrorTimeBlocked"
+
+    /// Set to true the first time the user dismisses (or completes) the
+    /// post-sign-in template gallery, so we don't auto-present it again.
+    /// Users can still open it manually via the Lists tab "From template"
+    /// button at any time.
+    static let hasSeenTemplateGallery   = "hasSeenTemplateGallery"
 }
 
 /// Three-way theme picker. Applied at the app root via .preferredColorScheme.

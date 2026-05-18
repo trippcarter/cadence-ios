@@ -212,8 +212,8 @@ final class TaskList {
     /// fields. Drives last-writer-wins for list metadata changes.
     var modifiedAt: Date = Date.now
     /// One of the seeded default lists (Inbox / Personal / Business /
-    /// Joint Business). These are non-deletable from the UI. Set by SeedData;
-    /// false for user-created lists.
+    /// Shared / Saved for later). These are non-deletable from the UI.
+    /// Set by SeedData; false for user-created lists.
     var isSeeded: Bool = false
 
     @Relationship(deleteRule: .cascade, inverse: \TaskItem.list)

@@ -16,7 +16,7 @@ enum SeedData {
         // Sample tasks are dev-only — real users get clean empty lists
         // and the friendly "Nothing on your plate today" empty state from
         // Phase 1.8. The four default lists above (Inbox/Personal/Business/
-        // Joint Business) are still created so the app is immediately usable.
+        // Shared) are still created so the app is immediately usable.
         #if DEBUG
         seedSampleTasks(in: lists, context: context)
         #endif
@@ -55,10 +55,17 @@ enum SeedData {
                 isSeeded: true
             ),
             TaskList(
-                name: "Joint Business",
+                name: "Shared",
                 colorKey: "teal",
                 iconKey: "person.2.fill",
                 sortOrder: 3,
+                isSeeded: true
+            ),
+            TaskList(
+                name: "Saved for later",
+                colorKey: "indigo",
+                iconKey: "bookmark.fill",
+                sortOrder: 4,
                 isSeeded: true
             ),
         ]
@@ -76,7 +83,7 @@ enum SeedData {
         let byName = Dictionary(uniqueKeysWithValues: lists.map { ($0.name, $0) })
         let personal = byName["Personal"]!
         let business = byName["Business"]!
-        let joint = byName["Joint Business"]!
+        let joint = byName["Shared"]!
 
         func at(_ day: Date, hour: Int, minute: Int = 0) -> Date {
             cal.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? day

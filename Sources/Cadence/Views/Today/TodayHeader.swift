@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TodayHeader: View {
     let date: Date
+    var onTapAvatar: () -> Void = {}
     @EnvironmentObject private var cloudSync: CloudKitSyncManager
 
     var body: some View {
@@ -27,7 +28,7 @@ struct TodayHeader: View {
                 syncIndicator
                     .padding(.trailing, 4)
             }
-            AvatarCluster()
+            AvatarCluster(onTap: onTapAvatar)
         }
     }
 

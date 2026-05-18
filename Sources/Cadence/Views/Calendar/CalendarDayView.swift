@@ -142,17 +142,56 @@ private struct DayHourTimeline: View {
     private let endHour = 23
     private let hourHeight: CGFloat = 60
     private let labelColumnWidth: CGFloat = 56
+    private let blockGutter: CGFloat = 3 // Horizontal gap between side-by-side columns
+
+    @State private var overflowAnchorID: String?
+
+    /// All time-ranged entries (tasks + events) projected into the common
+    /// `OverlapLayout.Entry` shape so the algorithm can group them together.
+    /// Tasks default to a 30-minute duration since they don't carry an end time.
+    private var overlapEntries: [OverlapLayout.Entry] {
+        var entries: [OverlapLayout.Entry] = []
+        for task in tasks {
+            guard let due = task.dueDate else { continue }
+            entries.append(.init(
+                id: "task-\(task.id.uuidString)",
+                start: due,
+                end: due.addingTimeInterval(30 * 60)
+            ))
+        }
+        for event in events {
+            let duration = max(event.end.timeIntervalSince(event.start), 1800)
+            entries.append(.init(
+                id: "event-\(event.id)",
+                start: event.start,
+                end: event.start.addingTimeInterval(min(duration, 4 * 3600))
+            ))
+        }
+        return entries
+    }
+
+    private var layouts: [String: OverlapLayout.Position] {
+        OverlapLayout.positions(for: overlapEntries)
+    }
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            hourGrid
-            taskBlocks
-            eventBlocks
-            if showsNowLine {
-                nowLine
+        GeometryReader { proxy in
+            ZStack(alignment: .topLeading) {
+                hourGrid
+                taskBlocks(in: proxy.size.width)
+                eventBlocks(in: proxy.size.width)
+                if showsNowLine {
+                    nowLine
+                }
             }
         }
         .frame(height: CGFloat(endHour - startHour) * hourHeight)
+        .sheet(isPresented: Binding(
+            get: { overflowAnchorID != nil },
+            set: { if !$0 { overflowAnchorID = nil } }
+        )) {
+            overflowSheet
+        }
     }
 
     private var hourGrid: some View {
@@ -178,38 +217,70 @@ private struct DayHourTimeline: View {
         }
     }
 
-    private var taskBlocks: some View {
+    private func taskBlocks(in containerWidth: CGFloat) -> some View {
         ForEach(tasks) { task in
-            if let positioned = position(for: task.dueDate, duration: 30 * 60) {
+            let entryID = "task-\(task.id.uuidString)"
+            if let positioned = position(for: task.dueDate, duration: 30 * 60),
+               let layout = layouts[entryID],
+               !layout.isOverflow {
                 let tint = ListPalette.color(for: task.list?.colorKey ?? "violet")
+                let frame = blockFrame(for: layout, containerWidth: containerWidth)
                 blockView(title: task.title,
                           subtitle: task.dueDate.map { $0.formatted(.dateTime.hour().minute()) } ?? "",
                           tint: tint,
                           icon: nil,
-                          height: positioned.height)
-                    .offset(x: labelColumnWidth + Tokens.Space.lg, y: positioned.y)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.trailing, labelColumnWidth + Tokens.Space.lg + Tokens.Space.lg)
-                    .onTapGesture { onTapTask(task) }
+                          height: positioned.height,
+                          overflowCount: layout.overflowCount)
+                    .frame(width: frame.width)
+                    .offset(x: frame.x, y: positioned.y)
+                    .onTapGesture {
+                        if layout.overflowCount > 0 {
+                            overflowAnchorID = entryID
+                        } else {
+                            onTapTask(task)
+                        }
+                    }
             }
         }
     }
 
-    private var eventBlocks: some View {
+    private func eventBlocks(in containerWidth: CGFloat) -> some View {
         ForEach(events) { event in
+            let entryID = "event-\(event.id)"
             let duration = max(event.end.timeIntervalSince(event.start), 1800)
-            if let positioned = position(for: event.start, duration: min(duration, 4 * 3600)) {
+            if let positioned = position(for: event.start, duration: min(duration, 4 * 3600)),
+               let layout = layouts[entryID],
+               !layout.isOverflow {
+                let frame = blockFrame(for: layout, containerWidth: containerWidth)
                 blockView(title: event.title,
                           subtitle: "\(event.start.formatted(.dateTime.hour().minute())) – \(event.end.formatted(.dateTime.hour().minute()))",
                           tint: Tokens.Color.teal,
                           icon: "calendar",
-                          height: positioned.height)
-                    .offset(x: labelColumnWidth + Tokens.Space.lg, y: positioned.y)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.trailing, labelColumnWidth + Tokens.Space.lg + Tokens.Space.lg)
-                    .onTapGesture { onTapEvent(event) }
+                          height: positioned.height,
+                          overflowCount: layout.overflowCount)
+                    .frame(width: frame.width)
+                    .offset(x: frame.x, y: positioned.y)
+                    .onTapGesture {
+                        if layout.overflowCount > 0 {
+                            overflowAnchorID = entryID
+                        } else {
+                            onTapEvent(event)
+                        }
+                    }
             }
         }
+    }
+
+    /// Computes the x-offset and width for a block based on its column index
+    /// within its cluster. The available horizontal space is the container's
+    /// width minus the hour-label gutter on the left and a small right margin.
+    private func blockFrame(for layout: OverlapLayout.Position, containerWidth: CGFloat) -> (x: CGFloat, width: CGFloat) {
+        let leadingInset = labelColumnWidth + Tokens.Space.lg
+        let trailingInset: CGFloat = Tokens.Space.lg
+        let trackWidth = max(containerWidth - leadingInset - trailingInset, 60)
+        let columnWidth = (trackWidth - CGFloat(layout.columnCount - 1) * blockGutter) / CGFloat(layout.columnCount)
+        let x = leadingInset + CGFloat(layout.columnIndex) * (columnWidth + blockGutter)
+        return (x, max(columnWidth, 40))
     }
 
     private struct PositionedBlock {
@@ -229,7 +300,7 @@ private struct DayHourTimeline: View {
         return PositionedBlock(y: y, height: max(height, 28))
     }
 
-    private func blockView(title: String, subtitle: String, tint: Color, icon: String?, height: CGFloat) -> some View {
+    private func blockView(title: String, subtitle: String, tint: Color, icon: String?, height: CGFloat, overflowCount: Int) -> some View {
         HStack(spacing: 6) {
             Rectangle()
                 .fill(tint)
@@ -246,6 +317,13 @@ private struct DayHourTimeline: View {
                     Text(subtitle)
                         .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(Tokens.Color.text3)
+                        .lineLimit(1)
+                }
+                if overflowCount > 0 {
+                    Text("+\(overflowCount) more")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(tint)
+                        .padding(.top, 1)
                 }
             }
             Spacer(minLength: 0)
@@ -265,6 +343,110 @@ private struct DayHourTimeline: View {
         let isPM = hour >= 12
         let display = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour)
         return "\(display) \(isPM ? "PM" : "AM")"
+    }
+
+    // MARK: Overflow expansion sheet
+
+    @ViewBuilder
+    private var overflowSheet: some View {
+        let anchorEntry = overlapEntries.first { $0.id == overflowAnchorID }
+        if let anchorEntry {
+            let cluster = clusterMembers(containing: anchorEntry)
+            NavigationStack {
+                List {
+                    Section {
+                        ForEach(cluster, id: \.id) { entry in
+                            overflowRow(entry: entry)
+                        }
+                    } header: {
+                        Text("Overlapping at this time")
+                            .font(Tokens.Font.label)
+                            .foregroundStyle(Tokens.Color.text3)
+                    }
+                }
+                .listStyle(.insetGrouped)
+                .navigationTitle("More")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") { overflowAnchorID = nil }
+                    }
+                }
+            }
+            .presentationDetents([.medium, .large])
+        }
+    }
+
+    @ViewBuilder
+    private func overflowRow(entry: OverlapLayout.Entry) -> some View {
+        if entry.id.hasPrefix("task-") {
+            let uuidString = String(entry.id.dropFirst("task-".count))
+            if let uuid = UUID(uuidString: uuidString),
+               let task = tasks.first(where: { $0.id == uuid }) {
+                Button {
+                    overflowAnchorID = nil
+                    onTapTask(task)
+                } label: {
+                    overflowRowContent(
+                        title: task.title,
+                        subtitle: entry.start.formatted(.dateTime.hour().minute()),
+                        tint: ListPalette.color(for: task.list?.colorKey ?? "violet"),
+                        icon: nil
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        } else if entry.id.hasPrefix("event-") {
+            let eventID = String(entry.id.dropFirst("event-".count))
+            if let event = events.first(where: { $0.id == eventID }) {
+                Button {
+                    overflowAnchorID = nil
+                    onTapEvent(event)
+                } label: {
+                    overflowRowContent(
+                        title: event.title,
+                        subtitle: "\(event.start.formatted(.dateTime.hour().minute())) – \(event.end.formatted(.dateTime.hour().minute()))",
+                        tint: Tokens.Color.teal,
+                        icon: "calendar"
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func overflowRowContent(title: String, subtitle: String, tint: Color, icon: String?) -> some View {
+        HStack(spacing: Tokens.Space.md) {
+            Rectangle().fill(tint).frame(width: 3, height: 36)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    if let icon { Image(systemName: icon).font(.system(size: 11, weight: .semibold)).foregroundStyle(tint) }
+                    Text(title).font(Tokens.Font.bodyEmphasis)
+                }
+                Text(subtitle).font(Tokens.Font.caption).foregroundStyle(Tokens.Color.text3)
+            }
+            Spacer()
+        }
+    }
+
+    private func clusterMembers(containing anchor: OverlapLayout.Entry) -> [OverlapLayout.Entry] {
+        let sorted = overlapEntries.sorted { $0.start < $1.start }
+        var cluster: [OverlapLayout.Entry] = []
+        var currentEnd: Date = .distantPast
+        for entry in sorted {
+            if cluster.isEmpty {
+                cluster = [entry]
+                currentEnd = entry.end
+            } else if entry.start < currentEnd {
+                cluster.append(entry)
+                currentEnd = max(currentEnd, entry.end)
+            } else {
+                if cluster.contains(where: { $0.id == anchor.id }) { return cluster }
+                cluster = [entry]
+                currentEnd = entry.end
+            }
+        }
+        return cluster
     }
 
     // MARK: Now line (only when viewing today)

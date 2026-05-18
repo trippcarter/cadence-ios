@@ -117,10 +117,11 @@ private struct WelcomePage: View {
 
 private struct ListsPage: View {
     private let lists: [(String, String, Color)] = [
-        ("Inbox", "tray.fill", Tokens.Color.text3),
         ("Personal", "person.fill", Tokens.Color.accent),
-        ("Business", "briefcase.fill", Tokens.Color.amber),
-        ("Joint Business", "person.2.fill", Tokens.Color.teal),
+        ("Family", "house.fill", Tokens.Color.pink),
+        ("Boat", "sailboat.fill", Tokens.Color.teal),
+        ("Projects", "hammer.fill", Tokens.Color.amber),
+        ("Side hustle", "lightbulb.fill", Tokens.Color.indigo),
     ]
 
     var body: some View {
@@ -135,11 +136,11 @@ private struct ListsPage: View {
                     .foregroundStyle(Tokens.Color.accent2)
             }
             VStack(spacing: 8) {
-                Text("Your lists are contexts")
+                Text("Lists for every context")
                     .font(.system(size: 26, weight: .bold))
                     .foregroundStyle(Tokens.Color.text)
                     .multilineTextAlignment(.center)
-                Text("Four lists are ready out of the box. Add your own — each gets its own color and icon.")
+                Text("Personal, family, business, boat, projects — anything you want. Create as many as you need, share any of them.")
                     .font(Tokens.Font.body)
                     .foregroundStyle(Tokens.Color.text2)
                     .multilineTextAlignment(.center)

@@ -9,6 +9,7 @@ struct ListsView: View {
     @Environment(\.modelContext) private var modelContext
 
     @State private var showingCreateSheet = false
+    @State private var showingTemplateGallery = false
     @State private var editingList: TaskList?
     @State private var deletingList: TaskList?
 
@@ -95,6 +96,9 @@ struct ListsView: View {
         .sheet(isPresented: $showingCreateSheet) {
             CreateListSheet(mode: .create)
         }
+        .sheet(isPresented: $showingTemplateGallery) {
+            TemplateGallerySheet()
+        }
         .sheet(item: $editingList) { list in
             CreateListSheet(mode: .edit(list))
         }
@@ -121,7 +125,7 @@ struct ListsView: View {
     // MARK: Header card
 
     private var headerCard: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Tokens.Space.sm) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Your lists")
                     .font(.system(size: 30, weight: .bold))
@@ -145,9 +149,30 @@ struct ListsView: View {
                 }
                 .buttonStyle(.plain)
             }
-            Text("\(lists.count) lists · \(totalOpenTasks) tasks")
-                .font(Tokens.Font.body)
-                .foregroundStyle(Tokens.Color.text3)
+            HStack(spacing: Tokens.Space.sm) {
+                Text("\(lists.count) lists · \(totalOpenTasks) tasks")
+                    .font(Tokens.Font.body)
+                    .foregroundStyle(Tokens.Color.text3)
+                Spacer()
+                Button {
+                    Haptics.tap()
+                    showingTemplateGallery = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "square.grid.2x2.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text("From template")
+                            .font(Tokens.Font.chip)
+                    }
+                    .foregroundStyle(Tokens.Color.accent2)
+                    .padding(.horizontal, Tokens.Space.sm)
+                    .padding(.vertical, 5)
+                    .background(Tokens.Color.surface)
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(Tokens.Color.borderSoft, lineWidth: 0.5))
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 
@@ -175,8 +200,8 @@ struct ListsView: View {
         if list.isShared {
             return "Shared · tap to manage"
         }
-        if list.name == "Joint Business" {
-            return "Private · tap header to invite"
+        if list.name == "Shared" {
+            return "Private · tap to invite others"
         }
         return "Private"
     }

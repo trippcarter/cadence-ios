@@ -9,6 +9,9 @@ struct RootView: View {
     @State private var didHandleLaunchArgs = false
 
     @AppStorage(PrefsKey.hasOnboarded) private var hasOnboarded: Bool = false
+    @AppStorage(PrefsKey.hasSeenTemplateGallery) private var hasSeenTemplateGallery: Bool = false
+
+    @State private var showingTemplateGalleryFromAuth = false
 
     @EnvironmentObject private var notifications: NotificationManager
     @EnvironmentObject private var authSession: AuthSession
@@ -46,9 +49,22 @@ struct RootView: View {
         .task {
             await authSession.refreshCredentialState()
         }
-        .onChange(of: authSession.state) { _, newState in
+        .onChange(of: authSession.state) { oldState, newState in
             NSLog("[Cadence-Auth] RootView observed state change: isSignedIn=%@",
                   newState.isSignedIn ? "true" : "false")
+            // First successful sign-in for this device: auto-present the
+            // Quick-start template gallery. Skipping it (or completing it)
+            // sets hasSeenTemplateGallery so we don't re-present.
+            if !oldState.isSignedIn, newState.isSignedIn, !hasSeenTemplateGallery {
+                // 0.6s delay so the welcome splash + main-app fade settle
+                // before we cover the screen with another sheet.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                    showingTemplateGalleryFromAuth = true
+                }
+            }
+        }
+        .sheet(isPresented: $showingTemplateGalleryFromAuth) {
+            TemplateGallerySheet()
         }
     }
 
