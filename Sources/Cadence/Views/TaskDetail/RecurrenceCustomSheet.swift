@@ -81,7 +81,6 @@ struct RecurrenceCustomSheet: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
     }
 
     // MARK: Frequency

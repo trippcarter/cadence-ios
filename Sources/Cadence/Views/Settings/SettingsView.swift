@@ -360,20 +360,46 @@ struct SettingsView: View {
         return Button {
             Haptics.tap()
             themeRaw = choice.rawValue
+            NSLog("[THEME] user picked %@ (rawValue=%@)", choice.displayName, choice.rawValue)
         } label: {
-            Text(choice.displayName)
-                .font(Tokens.Font.bodyEmphasis)
-                .padding(.vertical, Tokens.Space.sm)
-                .frame(maxWidth: .infinity)
-                .background(isSelected ? Tokens.Color.accent.opacity(0.20) : Tokens.Color.surface2)
-                .foregroundStyle(isSelected ? Tokens.Color.accent2 : Tokens.Color.text2)
-                .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous)
-                        .stroke(isSelected ? Tokens.Color.accent : Tokens.Color.borderSoft, lineWidth: isSelected ? 1 : 0.5)
-                )
+            HStack(spacing: 8) {
+                themeSwatch(choice)
+                Text(choice.displayName)
+                    .font(Tokens.Font.bodyEmphasis)
+            }
+            .padding(.vertical, Tokens.Space.sm)
+            .frame(maxWidth: .infinity)
+            .background(isSelected ? Tokens.Color.accent.opacity(0.20) : Tokens.Color.surface2)
+            .foregroundStyle(isSelected ? Tokens.Color.accent2 : Tokens.Color.text2)
+            .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous)
+                    .stroke(isSelected ? Tokens.Color.accent : Tokens.Color.borderSoft, lineWidth: isSelected ? 1 : 0.5)
+            )
         }
         .buttonStyle(.plain)
+    }
+
+    /// Small preview swatch next to each theme name: light circle, dark
+    /// circle, or a phone icon for "System".
+    @ViewBuilder
+    private func themeSwatch(_ choice: ThemeChoice) -> some View {
+        switch choice {
+        case .light:
+            Circle()
+                .fill(Color(hex: 0xFAF7F1))
+                .frame(width: 14, height: 14)
+                .overlay(Circle().stroke(Tokens.Color.borderSoft, lineWidth: 0.5))
+        case .dark:
+            Circle()
+                .fill(Color(hex: 0x07080C))
+                .frame(width: 14, height: 14)
+                .overlay(Circle().stroke(Tokens.Color.border, lineWidth: 0.5))
+        case .system:
+            Image(systemName: "iphone")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Tokens.Color.text2)
+        }
     }
 
     // MARK: Section helper

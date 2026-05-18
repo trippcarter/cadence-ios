@@ -50,7 +50,6 @@ struct DisplayNameEditSheet: View {
                     }
                 }
             }
-            .preferredColorScheme(.dark)
             .interactiveDismissDisabled(mode == .firstRun)
         }
         .onAppear {

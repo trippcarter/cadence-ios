@@ -96,7 +96,6 @@ struct CreateListSheet: View {
                         .disabled(!canSave)
                 }
             }
-            .preferredColorScheme(.dark)
         }
     }
 

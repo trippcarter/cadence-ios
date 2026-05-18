@@ -250,15 +250,28 @@ struct TaskRow: View {
             .foregroundStyle(Tokens.Color.text2)
     }
 
+    /// Build 13: warm amber gradient + tiny calendar icon so the chip reads
+    /// instantly as "carried over from another day" rather than blending in.
     private func carriedChip(for due: Date) -> some View {
         let dayName = due.formatted(.dateTime.weekday(.abbreviated))
-        return Text("was \(dayName)")
-            .font(Tokens.Font.chip)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 2)
-            .background(Tokens.Color.rose.opacity(0.12))
-            .foregroundStyle(Tokens.Color.rose)
-            .clipShape(Capsule())
+        return HStack(spacing: 4) {
+            Image(systemName: "calendar.badge.clock")
+                .font(.system(size: 9, weight: .semibold))
+            Text("was \(dayName)")
+                .font(Tokens.Font.chip)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(
+            LinearGradient(
+                colors: [Tokens.Color.amber.opacity(0.22), Tokens.Color.amber.opacity(0.10)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .foregroundStyle(Tokens.Color.amber)
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(Tokens.Color.amber.opacity(0.35), lineWidth: 0.5))
     }
 
     private func listChip(for list: TaskList) -> some View {

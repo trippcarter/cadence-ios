@@ -31,7 +31,6 @@ struct SnoozeSheet: View {
         }
         .presentationDetents(showingCustomPicker ? [.large] : [.medium])
         .presentationDragIndicator(.visible)
-        .preferredColorScheme(.dark)
     }
 
     // MARK: Sections

@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Cadence design tokens — single source of truth for colors, type, spacing, and radii.
 /// Mirrors the dark-UI palette in docs/Cadence_Mockups.html.
@@ -7,19 +10,53 @@ enum Tokens {
     // MARK: Color
 
     enum Color {
-        // Surfaces (darkest → lightest)
-        static let bg        = SwiftUI.Color(hex: 0x07080C)
-        static let bg2       = SwiftUI.Color(hex: 0x0B0D14)
-        static let surface   = SwiftUI.Color(hex: 0x14171F)
-        static let surface2  = SwiftUI.Color(hex: 0x1A1E29)
-        static let surface3  = SwiftUI.Color(hex: 0x212633, opacity: 0.59)
-        static let border    = SwiftUI.Color(hex: 0x252A38)
-        static let borderSoft = SwiftUI.Color(hex: 0x1B1F2B)
+        // Surfaces (darkest → lightest in dark mode; lightest → darkest in light mode).
+        // Build 13: now adaptive — each token resolves to its dark or light
+        // variant based on the current colorScheme so the Settings → Theme
+        // picker actually changes the look (previously all Tokens.Color values
+        // were hex-coded dark-only).
+        static let bg = SwiftUI.Color.dynamic(
+            light: SwiftUI.Color(hex: 0xFAF7F1),    // warm off-white / cream
+            dark:  SwiftUI.Color(hex: 0x07080C)
+        )
+        static let bg2 = SwiftUI.Color.dynamic(
+            light: SwiftUI.Color(hex: 0xF2EEE6),
+            dark:  SwiftUI.Color(hex: 0x0B0D14)
+        )
+        static let surface = SwiftUI.Color.dynamic(
+            light: SwiftUI.Color(hex: 0xFFFFFF),
+            dark:  SwiftUI.Color(hex: 0x14171F)
+        )
+        static let surface2 = SwiftUI.Color.dynamic(
+            light: SwiftUI.Color(hex: 0xF6F2EA),
+            dark:  SwiftUI.Color(hex: 0x1A1E29)
+        )
+        static let surface3 = SwiftUI.Color.dynamic(
+            light: SwiftUI.Color(hex: 0xEEE9DE, opacity: 0.78),
+            dark:  SwiftUI.Color(hex: 0x212633, opacity: 0.59)
+        )
+        static let border = SwiftUI.Color.dynamic(
+            light: SwiftUI.Color(hex: 0xDED8C9),
+            dark:  SwiftUI.Color(hex: 0x252A38)
+        )
+        static let borderSoft = SwiftUI.Color.dynamic(
+            light: SwiftUI.Color(hex: 0xEAE5D8),
+            dark:  SwiftUI.Color(hex: 0x1B1F2B)
+        )
 
         // Text (brightest → dimmest)
-        static let text  = SwiftUI.Color(hex: 0xE8EAF0)
-        static let text2 = SwiftUI.Color(hex: 0xA9AEC1)
-        static let text3 = SwiftUI.Color(hex: 0x6E7388)
+        static let text = SwiftUI.Color.dynamic(
+            light: SwiftUI.Color(hex: 0x1A1C24),
+            dark:  SwiftUI.Color(hex: 0xE8EAF0)
+        )
+        static let text2 = SwiftUI.Color.dynamic(
+            light: SwiftUI.Color(hex: 0x4B4F60),
+            dark:  SwiftUI.Color(hex: 0xA9AEC1)
+        )
+        static let text3 = SwiftUI.Color.dynamic(
+            light: SwiftUI.Color(hex: 0x8A8E9F),
+            dark:  SwiftUI.Color(hex: 0x6E7388)
+        )
 
         // Brand
         static let accent      = SwiftUI.Color(hex: 0x7C5CFF) // violet
@@ -97,5 +134,19 @@ extension SwiftUI.Color {
         let g = Double((hex >> 8)  & 0xFF) / 255.0
         let b = Double( hex        & 0xFF) / 255.0
         self.init(.sRGB, red: r, green: g, blue: b, opacity: opacity)
+    }
+
+    /// Resolve `light` or `dark` based on the active interface style. Build 13:
+    /// powers the adaptive Tokens.Color palette so the theme picker actually
+    /// changes the UI. Uses UIKit's UIColor(dynamicProvider:) under the hood,
+    /// which SwiftUI re-evaluates whenever the colorScheme environment changes.
+    static func dynamic(light: SwiftUI.Color, dark: SwiftUI.Color) -> SwiftUI.Color {
+        #if canImport(UIKit)
+        return SwiftUI.Color(UIColor { trait in
+            trait.userInterfaceStyle == .dark ? UIColor(dark) : UIColor(light)
+        })
+        #else
+        return dark
+        #endif
     }
 }

@@ -44,7 +44,6 @@ struct TemplateGallerySheet: View {
             }
             .navigationTitle("Quick start")
             .navigationBarTitleDisplayMode(.inline)
-            .preferredColorScheme(.dark)
         }
     }
 

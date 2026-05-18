@@ -47,7 +47,6 @@ struct WidgetGalleryView: View {
             }
             .padding(.horizontal, 20)
         }
-        .preferredColorScheme(.dark)
     }
 
     // MARK: Lock-screen group

@@ -86,7 +86,6 @@ struct TaskDetailSheet: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .navigationBarTitleDisplayMode(.inline)
         }
-        .preferredColorScheme(.dark)
         .onAppear {
             hasDueDate = task.dueDate != nil
             hasTime = !task.allDay

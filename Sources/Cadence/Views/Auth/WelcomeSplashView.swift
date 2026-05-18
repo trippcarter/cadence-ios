@@ -54,7 +54,6 @@ struct WelcomeSplashView: View {
                 .opacity(textOpacity)
             }
         }
-        .preferredColorScheme(.dark)
         .onAppear {
             withAnimation(.bouncy(duration: 0.55)) {
                 iconScale = 1.0

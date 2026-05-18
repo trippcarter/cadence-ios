@@ -417,7 +417,6 @@ struct SetDueTimeSheet: View {
                     .foregroundStyle(Tokens.Color.accent2)
                 }
             }
-            .preferredColorScheme(.dark)
         }
     }
 

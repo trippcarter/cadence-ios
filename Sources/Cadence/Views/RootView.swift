@@ -131,7 +131,10 @@ struct RootView: View {
     private var content: some View {
         switch selectedTab {
         case .today:
-            TodayView(onRequestSettingsTab: { selectedTab = .you })
+            TodayView(
+                onRequestSettingsTab: { selectedTab = .you },
+                onRequestQuickAdd: { showingAddTask = true }
+            )
         case .week:
             CalendarView()
         case .lists:

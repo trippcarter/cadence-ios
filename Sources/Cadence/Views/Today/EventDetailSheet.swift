@@ -53,7 +53,6 @@ struct EventDetailSheet: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .navigationBarTitleDisplayMode(.inline)
         }
-        .preferredColorScheme(.dark)
     }
 
     private var title: some View {

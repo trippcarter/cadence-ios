@@ -6,7 +6,7 @@ import CloudKit
 struct CadenceApp: App {
 
     let container: ModelContainer
-    @AppStorage(PrefsKey.themeChoice) private var themeRaw: String = ThemeChoice.dark.rawValue
+    @AppStorage(PrefsKey.themeChoice) private var themeRaw: String = ThemeChoice.system.rawValue
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var notifications = NotificationManager.shared
     @StateObject private var cloudSync = CloudKitSyncManager.shared
@@ -37,7 +37,7 @@ struct CadenceApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
-                .preferredColorScheme(ThemeChoice(rawValue: themeRaw)?.colorScheme ?? .dark)
+                .preferredColorScheme(resolvedColorScheme)
                 .environmentObject(notifications)
                 .task {
                     await notifications.refreshAuthorizationStatus()
@@ -69,6 +69,18 @@ struct CadenceApp: App {
                 }
             }
         }
+    }
+
+    /// Resolves the user's `themeRaw` @AppStorage choice to a ColorScheme
+    /// or nil (System). Logs to help diagnose the "theme doesn't change"
+    /// reports that have shown up in TestFlight.
+    private var resolvedColorScheme: ColorScheme? {
+        let choice = ThemeChoice(rawValue: themeRaw) ?? .system
+        let scheme = choice.colorScheme
+        NSLog("[THEME] applying choice=%@ scheme=%@",
+              choice.rawValue,
+              scheme == .dark ? "dark" : scheme == .light ? "light" : "system")
+        return scheme
     }
 
     private func handleOpenURL(_ url: URL) {

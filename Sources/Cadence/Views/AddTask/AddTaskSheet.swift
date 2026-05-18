@@ -118,7 +118,6 @@ struct AddTaskSheet: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
         .onAppear {
             if selectedListID == nil {
                 if let defaultList {

@@ -34,7 +34,6 @@ struct OnboardingView: View {
                     .padding(.bottom, Tokens.Space.xxl)
             }
         }
-        .preferredColorScheme(.dark)
     }
 
     // MARK: Sub-views

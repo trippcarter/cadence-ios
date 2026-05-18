@@ -31,7 +31,6 @@ struct SignInView: View {
             }
             .padding(.horizontal, Tokens.Space.lg)
         }
-        .preferredColorScheme(.dark)
     }
 
     // MARK: Sections
