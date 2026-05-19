@@ -140,8 +140,10 @@ extension SwiftUI.Color {
     /// powers the adaptive Tokens.Color palette so the theme picker actually
     /// changes the UI. Uses UIKit's UIColor(dynamicProvider:) under the hood,
     /// which SwiftUI re-evaluates whenever the colorScheme environment changes.
+    /// watchOS doesn't have `UIColor(dynamicProvider:)` or `userInterfaceStyle`
+    /// (the entire watchOS UI is dark), so we return the dark variant there.
     static func dynamic(light: SwiftUI.Color, dark: SwiftUI.Color) -> SwiftUI.Color {
-        #if canImport(UIKit)
+        #if canImport(UIKit) && !os(watchOS)
         return SwiftUI.Color(UIColor { trait in
             trait.userInterfaceStyle == .dark ? UIColor(dark) : UIColor(light)
         })
