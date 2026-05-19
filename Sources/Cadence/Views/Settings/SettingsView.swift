@@ -85,6 +85,34 @@ struct SettingsView: View {
                     .padding(.vertical, Tokens.Space.md)
                 }
 
+                section(title: "Voice & Siri") {
+                    voiceIntroRow
+                    Divider().background(Tokens.Color.borderSoft)
+                    samplePhraseRow(
+                        phrase: "\"Hey Siri, add to Cadence: pay rent next Friday\"",
+                        icon: "plus.circle.fill",
+                        tint: Tokens.Color.accent
+                    )
+                    Divider().background(Tokens.Color.borderSoft)
+                    samplePhraseRow(
+                        phrase: "\"Hey Siri, what's on my plate today\"",
+                        icon: "list.bullet.rectangle.fill",
+                        tint: Tokens.Color.teal
+                    )
+                    Divider().background(Tokens.Color.borderSoft)
+                    samplePhraseRow(
+                        phrase: "\"Hey Siri, mark <task> done in Cadence\"",
+                        icon: "checkmark.circle.fill",
+                        tint: Tokens.Color.mint
+                    )
+                    Divider().background(Tokens.Color.borderSoft)
+                    samplePhraseRow(
+                        phrase: "\"Hey Siri, open Cadence\"",
+                        icon: "moon.stars.fill",
+                        tint: Tokens.Color.accent2
+                    )
+                }
+
                 section(title: "Daily review") {
                     HStack {
                         rowLabel(icon: "moon.zzz.fill", text: "Evening review")
@@ -252,6 +280,48 @@ struct SettingsView: View {
         .sheet(isPresented: $showingDailyReviewManual) {
             DailyReviewSheet()
         }
+    }
+
+    // MARK: Voice & Siri rows (Build 20)
+
+    private var voiceIntroRow: some View {
+        HStack(alignment: .top, spacing: Tokens.Space.md) {
+            ZStack {
+                Circle()
+                    .fill(Tokens.Color.accent.opacity(0.18))
+                    .frame(width: 36, height: 36)
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.accent2)
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Talk to Cadence")
+                    .font(Tokens.Font.bodyEmphasis)
+                    .foregroundStyle(Tokens.Color.text)
+                Text("Siri can add tasks, complete them, and read out your day. Try the phrases below or build your own in Shortcuts.")
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Tokens.Color.text3)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, Tokens.Space.lg)
+        .padding(.vertical, Tokens.Space.md)
+    }
+
+    private func samplePhraseRow(phrase: String, icon: String, tint: Color) -> some View {
+        HStack(spacing: Tokens.Space.md) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(tint)
+                .frame(width: 22)
+            Text(phrase)
+                .font(.system(size: 13, weight: .regular, design: .rounded))
+                .foregroundStyle(Tokens.Color.text2)
+                .italic()
+            Spacer()
+        }
+        .padding(.horizontal, Tokens.Space.lg)
+        .padding(.vertical, Tokens.Space.md)
     }
 
     // MARK: Focus duration chips
