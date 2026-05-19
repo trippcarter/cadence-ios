@@ -27,6 +27,10 @@ final class NotificationManager: NSObject, ObservableObject {
     /// Set when the user taps a task reminder; RootView observes and presents
     /// the Task Detail sheet, then clears this value.
     @Published var deepLinkTaskID: UUID?
+    /// Build 18: flipped to true when the user taps the evening review
+    /// notification. RootView observes this and presents DailyReviewSheet,
+    /// then resets the flag.
+    @Published var deepLinkOpenReview: Bool = false
 
     /// Set when the user taps the morning brief; RootView routes to the Today tab.
     @Published var deepLinkRequestedTab: AppTab?
@@ -105,6 +109,7 @@ final class NotificationManager: NSObject, ObservableObject {
         }
 
         await schedule(briefWithContext: context, requestIfNeeded: false)
+        await scheduleDailyReview(requestIfNeeded: false)
     }
 
     private var isAuthorized: Bool {
@@ -194,6 +199,40 @@ final class NotificationManager: NSObject, ObservableObject {
 
     func scheduleDailyBrief(context: ModelContext) async {
         await schedule(briefWithContext: context, requestIfNeeded: true)
+    }
+
+    /// Build 18: schedule (or cancel + reschedule) the daily-review evening
+    /// notification. Called from Settings when the toggle / time picker
+    /// changes, plus on app launch via `rescheduleEverything`.
+    func scheduleDailyReview(requestIfNeeded: Bool = false) async {
+        center.removePendingNotificationRequests(withIdentifiers: ["daily-review"])
+        guard masterEnabled else { return }
+        let enabled = UserDefaults.standard.bool(forKey: PrefsKey.dailyReviewEnabled)
+        guard enabled else { return }
+        let authorized: Bool
+        if requestIfNeeded {
+            authorized = await ensureAuthorization()
+        } else {
+            authorized = isAuthorized
+        }
+        guard authorized else { return }
+
+        let hour = UserDefaults.standard.object(forKey: PrefsKey.dailyReviewHour) as? Int ?? 21
+        let minute = UserDefaults.standard.object(forKey: PrefsKey.dailyReviewMinute) as? Int ?? 0
+
+        let content = UNMutableNotificationContent()
+        content.title = "How did today go?"
+        content.body = "Quick reflection — under a minute."
+        content.sound = .default
+        content.userInfo = ["kind": "dailyReview"]
+
+        var comps = DateComponents()
+        comps.hour = hour
+        comps.minute = minute
+        let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
+
+        let request = UNNotificationRequest(identifier: "daily-review", content: content, trigger: trigger)
+        try? await center.add(request)
     }
 
     private func schedule(briefWithContext context: ModelContext, requestIfNeeded: Bool) async {
@@ -288,6 +327,8 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
             await MainActor.run { self.deepLinkTaskID = id }
         } else if kind == "dailyBrief" {
             await MainActor.run { self.deepLinkRequestedTab = .today }
+        } else if kind == "dailyReview" {
+            await MainActor.run { self.deepLinkOpenReview = true }
         }
     }
 }

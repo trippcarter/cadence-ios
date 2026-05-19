@@ -10,8 +10,17 @@ struct SettingsView: View {
     @AppStorage(PrefsKey.rolloverPolicy)       private var rolloverRaw: String = RolloverPolicy.on.rawValue
     @AppStorage(PrefsKey.themeChoice)          private var themeRaw: String = ThemeChoice.dark.rawValue
     @AppStorage(PrefsKey.notificationsEnabled) private var notifsEnabled: Bool = true
+    @AppStorage(PrefsKey.focusDurationMinutes) private var focusDuration: Int = 25
+    @AppStorage(PrefsKey.focusBreakMinutes)    private var focusBreak: Int = 5
+    @AppStorage(PrefsKey.focusPlaySound)       private var focusSound: Bool = true
+    @AppStorage(PrefsKey.focusPlayHaptic)      private var focusHaptic: Bool = true
+    @AppStorage(PrefsKey.focusAutoStartNext)   private var focusAutoStart: Bool = false
+    @AppStorage(PrefsKey.dailyReviewEnabled)   private var reviewEnabled: Bool = false
+    @AppStorage(PrefsKey.dailyReviewHour)      private var reviewHour: Int = 21
+    @AppStorage(PrefsKey.dailyReviewMinute)    private var reviewMinute: Int = 0
 
     @State private var testFeedback: String?
+    @State private var showingDailyReviewManual: Bool = false
 
     @EnvironmentObject private var notifications: NotificationManager
     @EnvironmentObject private var authSession: AuthSession
@@ -71,6 +80,88 @@ struct SettingsView: View {
                         )
                             .labelsHidden()
                             .tint(Tokens.Color.accent)
+                    }
+                    .padding(.horizontal, Tokens.Space.lg)
+                    .padding(.vertical, Tokens.Space.md)
+                }
+
+                section(title: "Daily review") {
+                    HStack {
+                        rowLabel(icon: "moon.zzz.fill", text: "Evening review")
+                        Spacer()
+                        Toggle("", isOn: $reviewEnabled)
+                            .tint(Tokens.Color.accent)
+                            .labelsHidden()
+                    }
+                    .padding(.horizontal, Tokens.Space.lg)
+                    .padding(.vertical, Tokens.Space.md)
+
+                    if reviewEnabled {
+                        Divider().background(Tokens.Color.borderSoft)
+                        HStack {
+                            rowLabel(icon: "clock", text: "Reminder time")
+                            Spacer()
+                            DatePicker("", selection: reviewTimeBinding, displayedComponents: .hourAndMinute)
+                                .labelsHidden()
+                                .tint(Tokens.Color.accent)
+                        }
+                        .padding(.horizontal, Tokens.Space.lg)
+                        .padding(.vertical, Tokens.Space.md)
+                    }
+
+                    Divider().background(Tokens.Color.borderSoft)
+                    Button {
+                        showingDailyReviewManual = true
+                    } label: {
+                        HStack {
+                            rowLabel(icon: "play.fill", text: "Run today's review")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Tokens.Color.text3)
+                        }
+                        .padding(.horizontal, Tokens.Space.lg)
+                        .padding(.vertical, Tokens.Space.md)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                section(title: "Focus") {
+                    VStack(alignment: .leading, spacing: Tokens.Space.sm) {
+                        rowLabel(icon: "timer", text: "Session length")
+                        focusDurationChips
+                    }
+                    .padding(.horizontal, Tokens.Space.lg)
+                    .padding(.vertical, Tokens.Space.md)
+                    Divider().background(Tokens.Color.borderSoft)
+                    VStack(alignment: .leading, spacing: Tokens.Space.sm) {
+                        rowLabel(icon: "cup.and.saucer.fill", text: "Break length")
+                        focusBreakChips
+                    }
+                    .padding(.horizontal, Tokens.Space.lg)
+                    .padding(.vertical, Tokens.Space.md)
+                    Divider().background(Tokens.Color.borderSoft)
+                    HStack {
+                        rowLabel(icon: "speaker.wave.2.fill", text: "Completion sound")
+                        Spacer()
+                        Toggle("", isOn: $focusSound).labelsHidden().tint(Tokens.Color.accent)
+                    }
+                    .padding(.horizontal, Tokens.Space.lg)
+                    .padding(.vertical, Tokens.Space.md)
+                    Divider().background(Tokens.Color.borderSoft)
+                    HStack {
+                        rowLabel(icon: "iphone.radiowaves.left.and.right", text: "Completion haptic")
+                        Spacer()
+                        Toggle("", isOn: $focusHaptic).labelsHidden().tint(Tokens.Color.accent)
+                    }
+                    .padding(.horizontal, Tokens.Space.lg)
+                    .padding(.vertical, Tokens.Space.md)
+                    Divider().background(Tokens.Color.borderSoft)
+                    HStack {
+                        rowLabel(icon: "arrow.triangle.2.circlepath", text: "Auto-start next session")
+                        Spacer()
+                        Toggle("", isOn: $focusAutoStart).labelsHidden().tint(Tokens.Color.accent)
                     }
                     .padding(.horizontal, Tokens.Space.lg)
                     .padding(.vertical, Tokens.Space.md)
@@ -155,6 +246,76 @@ struct SettingsView: View {
                 }
             }
         }
+        .onChange(of: reviewEnabled) { _, _ in
+            Task { await notifications.scheduleDailyReview(requestIfNeeded: true) }
+        }
+        .sheet(isPresented: $showingDailyReviewManual) {
+            DailyReviewSheet()
+        }
+    }
+
+    // MARK: Focus duration chips
+
+    private var focusDurationChips: some View {
+        HStack(spacing: Tokens.Space.sm) {
+            ForEach([15, 25, 30, 45, 60], id: \.self) { mins in
+                Button {
+                    Haptics.tap()
+                    focusDuration = mins
+                } label: {
+                    Text("\(mins)")
+                        .font(Tokens.Font.bodyEmphasis)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, Tokens.Space.sm)
+                        .background(focusDuration == mins ? Tokens.Color.accent.opacity(0.22) : Tokens.Color.surface2)
+                        .foregroundStyle(focusDuration == mins ? Tokens.Color.accent2 : Tokens.Color.text2)
+                        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous)
+                                .stroke(focusDuration == mins ? Tokens.Color.accent : Tokens.Color.borderSoft, lineWidth: focusDuration == mins ? 1 : 0.5)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var focusBreakChips: some View {
+        HStack(spacing: Tokens.Space.sm) {
+            ForEach([5, 10, 15], id: \.self) { mins in
+                Button {
+                    Haptics.tap()
+                    focusBreak = mins
+                } label: {
+                    Text("\(mins) min")
+                        .font(Tokens.Font.bodyEmphasis)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, Tokens.Space.sm)
+                        .background(focusBreak == mins ? Tokens.Color.mint.opacity(0.22) : Tokens.Color.surface2)
+                        .foregroundStyle(focusBreak == mins ? Tokens.Color.mint : Tokens.Color.text2)
+                        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous)
+                                .stroke(focusBreak == mins ? Tokens.Color.mint : Tokens.Color.borderSoft, lineWidth: focusBreak == mins ? 1 : 0.5)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var reviewTimeBinding: Binding<Date> {
+        Binding(
+            get: {
+                Calendar.current.date(bySettingHour: reviewHour, minute: reviewMinute, second: 0, of: .now) ?? .now
+            },
+            set: { newValue in
+                let comps = Calendar.current.dateComponents([.hour, .minute], from: newValue)
+                reviewHour = comps.hour ?? 21
+                reviewMinute = comps.minute ?? 0
+                Task { await notifications.scheduleDailyReview(requestIfNeeded: false) }
+            }
+        )
     }
 
     // MARK: Hero profile card

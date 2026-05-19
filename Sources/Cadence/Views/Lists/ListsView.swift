@@ -22,6 +22,10 @@ struct ListsView: View {
         lists.filter { $0.household == nil }
     }
 
+    private var hasAnyHabit: Bool {
+        allTasks.contains { $0.isHabit && $0.parent == nil }
+    }
+
     var body: some View {
         ZStack {
             Tokens.Color.bg.ignoresSafeArea()
@@ -42,6 +46,10 @@ struct ListsView: View {
 
                 createHouseholdRow
 
+                if hasAnyHabit {
+                    habitsDashboardRow
+                }
+
                 smartListsSection
 
                 Color.clear
@@ -55,6 +63,11 @@ struct ListsView: View {
         }
         .navigationDestination(for: ListSource.self) { source in
             ListDetailView(source: source)
+        }
+        .navigationDestination(for: ListsViewDestination.self) { dest in
+            switch dest {
+            case .habits: HabitsDashboardView()
+            }
         }
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $showingCreateSheet) {
@@ -266,6 +279,61 @@ struct ListsView: View {
         .listSectionSeparator(.hidden)
     }
 
+    // MARK: Habits dashboard row (Build 18)
+
+    private var habitsDashboardRow: some View {
+        Section {
+            NavigationLink(value: ListsViewDestination.habits) {
+                HStack(spacing: Tokens.Space.md) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous)
+                            .fill(Tokens.Color.amber.opacity(0.18))
+                            .frame(width: 34, height: 34)
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Tokens.Color.amber)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Habits")
+                            .font(Tokens.Font.bodyEmphasis)
+                            .foregroundStyle(Tokens.Color.text)
+                        Text("\(habitCount) tracked · longest streak \(longestStreak) days")
+                            .font(Tokens.Font.caption)
+                            .foregroundStyle(Tokens.Color.text3)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Tokens.Color.text3)
+                }
+                .padding(.horizontal, Tokens.Space.lg)
+                .padding(.vertical, Tokens.Space.md)
+                .background(Tokens.Color.surface)
+                .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous)
+                        .stroke(Tokens.Color.borderSoft, lineWidth: 0.5)
+                )
+            }
+            .buttonStyle(.plain)
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: Tokens.Space.md, leading: Tokens.Space.lg, bottom: 4, trailing: Tokens.Space.lg))
+        }
+        .listSectionSeparator(.hidden)
+    }
+
+    private var habitCount: Int {
+        allTasks.filter { $0.isHabit && $0.parent == nil }.count
+    }
+
+    private var longestStreak: Int {
+        allTasks
+            .filter { $0.isHabit && $0.parent == nil }
+            .map { HabitTracker.currentStreak(for: $0, in: modelContext) }
+            .max() ?? 0
+    }
+
     // MARK: Smart lists section
 
     @ViewBuilder
@@ -404,3 +472,10 @@ struct ListsView: View {
         WidgetReloader.reload()
     }
 }
+
+/// Side-channel navigation values for screens that aren't keyed by a TaskList
+/// (e.g., the Habits dashboard, future Stats / Review history surfaces).
+enum ListsViewDestination: Hashable {
+    case habits
+}
+

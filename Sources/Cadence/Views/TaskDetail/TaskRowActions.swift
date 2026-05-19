@@ -20,6 +20,7 @@ struct TaskRowActionContainer<Content: View>: View {
     @State private var snoozingTask: TaskItem?
     @State private var deletingTask: TaskItem?
     @State private var settingDueTime: Bool = false
+    @State private var focusingTask: TaskItem?
 
     var body: some View {
         content()
@@ -62,6 +63,9 @@ struct TaskRowActionContainer<Content: View>: View {
             }
             .sheet(isPresented: $settingDueTime) {
                 SetDueTimeSheet(task: task)
+            }
+            .fullScreenCover(item: $focusingTask) { focused in
+                FocusView(task: focused)
             }
             .alert(
                 "Delete this task?",
@@ -128,6 +132,21 @@ struct TaskRowActionContainer<Content: View>: View {
         } label: {
             Label(task.isPinned ? "Unpin from top" : "Pin to top",
                   systemImage: task.isPinned ? "star.slash" : "star.fill")
+        }
+
+        // Build 18: Focus session entry point (Pomodoro)
+        Button {
+            focusingTask = task
+        } label: {
+            Label("Start Focus session", systemImage: "timer")
+        }
+
+        // Build 18: Habit toggle quick-flag
+        Button {
+            toggleHabit()
+        } label: {
+            Label(task.isHabit ? "Stop tracking as habit" : "Flag as habit",
+                  systemImage: task.isHabit ? "flame.fill" : "flame")
         }
 
         Divider()
@@ -259,6 +278,19 @@ struct TaskRowActionContainer<Content: View>: View {
         WidgetReloader.reload()
     }
 
+    /// Build 18: flip the habit flag. Doesn't insert a HabitCompletion here —
+    /// completion stamping happens in toggleComplete when the task is
+    /// actually completed.
+    private func toggleHabit() {
+        Haptics.tap()
+        withAnimation(.bouncy(duration: 0.35)) {
+            task.isHabit.toggle()
+            task.modifiedAt = .now
+        }
+        try? modelContext.save()
+        Task { await SharedListMirror.shared.taskChanged(task) }
+    }
+
     private func move(to list: TaskList) {
         Haptics.tap()
         let oldList = task.list
@@ -361,6 +393,10 @@ struct TaskRowActionContainer<Content: View>: View {
         }
         if !wasCompleted {
             ActivityLogger.record(.completed, for: task, in: modelContext)
+            // Build 18: stamp a HabitCompletion row when a habit task gets
+            // completed. No-op when task.isHabit == false. Idempotent for
+            // double-tap completions on the same day.
+            HabitTracker.recordCompletionIfNeeded(for: task, in: modelContext)
         }
         try? modelContext.save()
         Task {

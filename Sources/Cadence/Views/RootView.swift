@@ -16,6 +16,9 @@ struct RootView: View {
     /// the post-name-prompt template gallery presentation. Without this we'd
     /// race the AuthSession flag, which clears on commit.
     @State private var pendingTemplateGalleryAfterName = false
+    /// Build 18: shown when the user taps the daily-review notification OR
+    /// manually triggers via You tab → "Run today's review".
+    @State private var showingDailyReview: Bool = false
 
     @EnvironmentObject private var notifications: NotificationManager
     @EnvironmentObject private var authSession: AuthSession
@@ -92,6 +95,14 @@ struct RootView: View {
         }
         .sheet(isPresented: $showingTemplateGalleryFromAuth) {
             TemplateGallerySheet()
+        }
+        .sheet(isPresented: $showingDailyReview) {
+            DailyReviewSheet()
+        }
+        .onChange(of: notifications.deepLinkOpenReview) { _, newValue in
+            guard newValue else { return }
+            showingDailyReview = true
+            notifications.deepLinkOpenReview = false
         }
     }
 

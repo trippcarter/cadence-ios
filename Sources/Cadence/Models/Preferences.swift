@@ -29,6 +29,26 @@ enum PrefsKey {
     /// here is the legacy device-wide flag, still used as a migration
     /// fallback for users upgrading from Build 10.
     static let hasSeenTemplateGallery   = "hasSeenTemplateGallery"
+
+    // Focus mode (Build 18)
+    /// Planned focus-session length in minutes. Default 25 (classic Pomodoro).
+    static let focusDurationMinutes     = "focusDurationMinutes"
+    /// Break-suggestion length in minutes shown after a completed session.
+    static let focusBreakMinutes        = "focusBreakMinutes"
+    /// Play the gentle completion bell when a session naturally ends.
+    static let focusPlaySound           = "focusPlaySound"
+    /// Fire a success notification haptic when a session naturally ends.
+    static let focusPlayHaptic          = "focusPlayHaptic"
+    /// Auto-start the next focus session as soon as the break ends.
+    static let focusAutoStartNext       = "focusAutoStartNext"
+
+    // Daily review (Build 18)
+    /// Enable the evening review notification + sheet entry point.
+    static let dailyReviewEnabled       = "dailyReviewEnabled"
+    /// Hour-of-day (0-23) for the review notification fire.
+    static let dailyReviewHour          = "dailyReviewHour"
+    /// Minute-of-hour for the review notification fire.
+    static let dailyReviewMinute        = "dailyReviewMinute"
 }
 
 /// Per-Apple-Sign-In-identifier preferences. Different users on the same

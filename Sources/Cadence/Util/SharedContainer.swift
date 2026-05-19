@@ -35,6 +35,11 @@ enum CadenceContainer {
             Activity.self,
             Household.self,
             HouseholdMembership.self,
+            FocusSession.self,
+            HabitCompletion.self,
+            ReviewLog.self,
+            TomorrowIntention.self,
+            DailyWin.self,
             CachedEvent.self
         ])
 
@@ -57,7 +62,12 @@ enum CadenceContainer {
             CalendarConfig.self,
             Activity.self,
             Household.self,
-            HouseholdMembership.self
+            HouseholdMembership.self,
+            FocusSession.self,
+            HabitCompletion.self,
+            ReviewLog.self,
+            TomorrowIntention.self,
+            DailyWin.self
         ])
         if let groupURL = FileManager.default.containerURL(
             forSecurityApplicationGroupIdentifier: appGroupID

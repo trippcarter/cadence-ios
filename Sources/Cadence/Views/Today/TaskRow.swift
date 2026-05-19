@@ -50,6 +50,9 @@ struct TaskRow: View {
                             .strikethrough(task.status == .completed, color: Tokens.Color.text3)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
+                        if task.isHabit {
+                            habitFlameBadge
+                        }
                     }
                     meta
                     if !task.subtaskList.isEmpty {
@@ -125,6 +128,36 @@ struct TaskRow: View {
         }
     }
 
+    /// Build 18 flame + streak badge for habit tasks. Streak color tier
+    /// follows the spec: 0-6 muted, 7-29 amber, 30-99 warm orange, 100+
+    /// mint celebration.
+    private var habitFlameBadge: some View {
+        let streak = HabitTracker.currentStreak(for: task, in: modelContext)
+        return HStack(spacing: 3) {
+            Image(systemName: "flame.fill")
+                .font(.system(size: 10, weight: .bold))
+            if streak > 0 {
+                Text("\(streak)")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+            }
+        }
+        .foregroundStyle(streakTier(streak: streak))
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .background(streakTier(streak: streak).opacity(0.14))
+        .clipShape(Capsule())
+    }
+
+    private func streakTier(streak: Int) -> Color {
+        switch streak {
+        case 100...: return Tokens.Color.mint
+        case 30...:  return Tokens.Color.orange
+        case 7...:   return Tokens.Color.amber
+        default:     return Tokens.Color.text3
+        }
+    }
+
     // MARK: Complete circle
 
     private var completeButton: some View {
@@ -158,8 +191,9 @@ struct TaskRow: View {
     }
 
     private func toggleComplete() {
+        let wasCompleted = task.status == .completed
         withAnimation(Tokens.Motion.spring) {
-            if task.status == .completed {
+            if wasCompleted {
                 task.status = .open
                 task.completedAt = nil
             } else {
@@ -167,6 +201,9 @@ struct TaskRow: View {
                 task.completedAt = .now
                 Haptics.success()
             }
+        }
+        if !wasCompleted {
+            HabitTracker.recordCompletionIfNeeded(for: task, in: modelContext)
         }
         try? modelContext.save()
         Task { await SharedListMirror.shared.taskChanged(task) }

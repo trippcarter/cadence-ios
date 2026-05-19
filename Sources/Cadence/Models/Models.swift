@@ -114,6 +114,13 @@ final class TaskItem {
     /// When the assignment was made. Drives the "Assigned 2h ago" line.
     var assignedAt: Date?
 
+    // Habits (Build 18)
+    /// When true, every completion of this task (typically a recurring
+    /// daily/weekly task) writes a HabitCompletion row that drives the
+    /// flame + streak number on the row and the Habits dashboard grid.
+    /// Default false — most tasks aren't habits.
+    var isHabit: Bool = false
+
     // Relationships
     var list: TaskList?
     var parent: TaskItem?

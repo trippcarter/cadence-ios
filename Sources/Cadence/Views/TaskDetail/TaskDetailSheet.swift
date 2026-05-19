@@ -27,6 +27,7 @@ struct TaskDetailSheet: View {
     @State private var newSubtaskTitle: String = ""
     @State private var showingRecurrenceSheet: Bool = false
     @State private var recurrenceDraft: RecurrenceRule = RecurrenceRule(frequency: .weekly)
+    @State private var showingFocusView: Bool = false
     @FocusState private var titleFocused: Bool
     @FocusState private var subtaskFocused: Bool
 
@@ -41,8 +42,12 @@ struct TaskDetailSheet: View {
                         }
                         titleBlock
                         chipsRow
+                        focusButtonRow
                         notesBlock
                         propertiesGroup
+                        if isHabitEligible {
+                            habitToggleBlock
+                        }
                         subtasksBlock
                         Color.clear.frame(height: Tokens.Space.xl)
                     }
@@ -105,6 +110,111 @@ struct TaskDetailSheet: View {
             persist()
         }
         .interactiveDismissDisabled(false)
+        .fullScreenCover(isPresented: $showingFocusView) {
+            FocusView(task: task)
+        }
+    }
+
+    // MARK: Focus + Habit affordances (Build 18)
+
+    /// Big tappable "Focus" row directly below the title chips. Opens the
+    /// full-screen FocusView (Pomodoro timer).
+    private var focusButtonRow: some View {
+        Button {
+            Haptics.tap()
+            showingFocusView = true
+        } label: {
+            HStack(spacing: Tokens.Space.md) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Tokens.Color.accent, Tokens.Color.accentDeep],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 40, height: 40)
+                    Image(systemName: "timer")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Start a focus session")
+                        .font(Tokens.Font.bodyEmphasis)
+                        .foregroundStyle(Tokens.Color.text)
+                    Text("Pomodoro · default 25 min")
+                        .font(Tokens.Font.caption)
+                        .foregroundStyle(Tokens.Color.text3)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.text3)
+            }
+            .padding(.horizontal, Tokens.Space.lg)
+            .padding(.vertical, Tokens.Space.md)
+            .background(Tokens.Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous)
+                    .stroke(Tokens.Color.accent.opacity(0.25), lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Track-as-habit toggle. Shown when the task has any kind of cadence —
+    /// either a recurrence rule OR a non-completed status with a due date.
+    /// Daily and weekly recurring tasks are the obvious habit candidates.
+    private var isHabitEligible: Bool {
+        task.isRecurring || task.dueDate != nil
+    }
+
+    private var habitToggleBlock: some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.sm) {
+            sectionLabel("Habit")
+            HStack(spacing: Tokens.Space.md) {
+                ZStack {
+                    Circle()
+                        .fill(Tokens.Color.amber.opacity(0.18))
+                        .frame(width: 34, height: 34)
+                    Image(systemName: task.isHabit ? "flame.fill" : "flame")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Tokens.Color.amber)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Track as habit")
+                        .font(Tokens.Font.bodyEmphasis)
+                        .foregroundStyle(Tokens.Color.text)
+                    Text(task.isHabit
+                         ? "Every completion adds to your streak."
+                         : "Turn on to track consistency.")
+                        .font(Tokens.Font.caption)
+                        .foregroundStyle(Tokens.Color.text3)
+                }
+                Spacer()
+                Toggle("", isOn: Binding(
+                    get: { task.isHabit },
+                    set: { newValue in
+                        Haptics.tap()
+                        task.isHabit = newValue
+                        task.modifiedAt = .now
+                        persist()
+                    }
+                ))
+                .labelsHidden()
+                .tint(Tokens.Color.amber)
+            }
+            .padding(.horizontal, Tokens.Space.lg)
+            .padding(.vertical, Tokens.Space.md)
+            .background(Tokens.Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous)
+                    .stroke(Tokens.Color.borderSoft, lineWidth: 0.5)
+            )
+        }
     }
 
     // MARK: Divergence banner
