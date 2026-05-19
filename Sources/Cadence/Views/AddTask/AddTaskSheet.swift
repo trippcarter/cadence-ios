@@ -31,6 +31,7 @@ struct AddTaskSheet: View {
     /// when the currently-picked list is parented by a Household. Reset to
     /// nil if the user pivots to a personal list mid-creation.
     @State private var assignedToIdentifier: String? = nil
+    @State private var showingListPicker: Bool = false
 
     @EnvironmentObject private var authSession: AuthSession
 
@@ -92,11 +93,8 @@ struct AddTaskSheet: View {
                         }
 
                         VStack(alignment: .leading, spacing: Tokens.Space.md) {
-                            sectionLabel("List")
-                            ListPickerStrip(
-                                lists: lists,
-                                selectedListID: $selectedListID
-                            )
+                            sectionLabel("Goes in")
+                            goesInRow
                         }
 
                         // Build 16: inline household-member assignment. Only
@@ -180,6 +178,93 @@ struct AddTaskSheet: View {
               let list = lists.first(where: { $0.persistentModelID == listID })
         else { return nil }
         return list.household
+    }
+
+    /// Currently-selected TaskList. nil before defaultList kicks in or if
+    /// the selection somehow falls out of sync with the @Query.
+    private var pickedList: TaskList? {
+        guard let listID = selectedListID else { return nil }
+        return lists.first(where: { $0.persistentModelID == listID })
+    }
+
+    /// Build 17: replaces the flat horizontal `ListPickerStrip` with a
+    /// tappable "destination" card that surfaces the picked list's color +
+    /// icon + name, plus a household chip when household-scoped. Tap opens
+    /// `HierarchicalListPickerSheet` for a grouped, searchable picker.
+    @ViewBuilder
+    private var goesInRow: some View {
+        Button {
+            Haptics.tap()
+            showingListPicker = true
+        } label: {
+            HStack(spacing: Tokens.Space.md) {
+                if let list = pickedList {
+                    let tint = ListPalette.color(for: list.colorKey)
+                    ZStack {
+                        RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous)
+                            .fill(tint.opacity(0.22))
+                            .frame(width: 36, height: 36)
+                        Image(systemName: list.iconKey)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(tint)
+                    }
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(list.name)
+                            .font(Tokens.Font.bodyEmphasis)
+                            .foregroundStyle(Tokens.Color.text)
+                            .lineLimit(1)
+                        if let household = list.household {
+                            HStack(spacing: 4) {
+                                Image(systemName: household.iconKey)
+                                    .font(.system(size: 9, weight: .semibold))
+                                Text(household.name)
+                                    .font(Tokens.Font.chip)
+                            }
+                            .foregroundStyle(ListPalette.color(for: household.colorKey))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(ListPalette.color(for: household.colorKey).opacity(0.14))
+                            .clipShape(Capsule())
+                        } else {
+                            Text("Personal")
+                                .font(Tokens.Font.chip)
+                                .foregroundStyle(Tokens.Color.text3)
+                        }
+                    }
+                } else {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous)
+                            .fill(Tokens.Color.surface2)
+                            .frame(width: 36, height: 36)
+                        Image(systemName: "tray")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Tokens.Color.text3)
+                    }
+                    Text("Pick a list")
+                        .font(Tokens.Font.bodyEmphasis)
+                        .foregroundStyle(Tokens.Color.text3)
+                }
+                Spacer()
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.text3)
+                    .rotationEffect(.degrees(showingListPicker ? 90 : 0))
+                    .animation(.bouncy(duration: 0.3), value: showingListPicker)
+            }
+            .padding(.horizontal, Tokens.Space.lg)
+            .padding(.vertical, Tokens.Space.md)
+            .background(Tokens.Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous)
+                    .stroke(Tokens.Color.borderSoft, lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $showingListPicker) {
+            HierarchicalListPickerSheet(selectedListID: $selectedListID)
+                .presentationDetents([.large])
+        }
     }
 
     private var hasParsedSomething: Bool {
@@ -364,54 +449,6 @@ struct AddTaskSheet: View {
         Task { await SharedListMirror.shared.taskChanged(task) }
         WidgetReloader.reload()
         dismiss()
-    }
-}
-
-// MARK: - List picker
-
-private struct ListPickerStrip: View {
-    let lists: [TaskList]
-    @Binding var selectedListID: PersistentIdentifier?
-
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Tokens.Space.sm) {
-                ForEach(lists) { list in
-                    let isSelected = list.persistentModelID == selectedListID
-                    Button {
-                        Haptics.tap()
-                        selectedListID = list.persistentModelID
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: list.iconKey)
-                                .font(.system(size: 11, weight: .semibold))
-                            Text(list.name)
-                                .font(Tokens.Font.bodyEmphasis)
-                        }
-                        .padding(.horizontal, Tokens.Space.md)
-                        .padding(.vertical, Tokens.Space.sm)
-                        .background(
-                            isSelected
-                                ? ListPalette.color(for: list.colorKey).opacity(0.20)
-                                : Tokens.Color.surface
-                        )
-                        .foregroundStyle(
-                            isSelected
-                                ? ListPalette.color(for: list.colorKey)
-                                : Tokens.Color.text2
-                        )
-                        .clipShape(Capsule())
-                        .overlay(
-                            Capsule().stroke(
-                                isSelected ? ListPalette.color(for: list.colorKey) : Tokens.Color.borderSoft,
-                                lineWidth: isSelected ? 1 : 0.5
-                            )
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
     }
 }
 
