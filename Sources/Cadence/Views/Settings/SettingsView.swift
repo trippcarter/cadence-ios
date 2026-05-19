@@ -4,30 +4,41 @@ import SwiftData
 import UIKit
 #endif
 
+/// Build 28: full You-tab restructure. The previous mega-section list
+/// (15+ groups stacked vertically) collapses into 8 well-named
+/// sections with chevron drill-ins for anything that needs more than
+/// a single toggle. Profile card + insights strip live above the
+/// sections; preferences live below the existing settings.
+///
+/// All current @AppStorage keys are preserved — only their UI homes
+/// moved. Deeper propagation of the new preferences (time format
+/// affecting every formatter, first day of week reshaping Calendar,
+/// quiet hours suppressing notifications, Insights drill-in with
+/// charts) ships in Build 29.
 struct SettingsView: View {
-    @AppStorage(PrefsKey.dailyBriefHour)       private var briefHour: Int = 7
-    @AppStorage(PrefsKey.dailyBriefMinute)     private var briefMinute: Int = 30
-    @AppStorage(PrefsKey.rolloverPolicy)       private var rolloverRaw: String = RolloverPolicy.on.rawValue
-    @AppStorage(PrefsKey.themeChoice)          private var themeRaw: String = ThemeChoice.dark.rawValue
+    // Existing settings — still wired here either as inline rows or
+    // bindings the sub-screens reference.
+    @AppStorage(PrefsKey.themeChoice)          private var themeRaw: String = ThemeChoice.system.rawValue
     @AppStorage(PrefsKey.notificationsEnabled) private var notifsEnabled: Bool = true
-    @AppStorage(PrefsKey.showComingUpSection)      private var showComingUp: Bool = true
-    @AppStorage(PrefsKey.comingUpWindowDays)       private var comingUpDays: Int = 7
-    @AppStorage(PrefsKey.autoCollapseCarriedThreshold) private var autoCollapseThreshold: Int = 3
-    @AppStorage(PrefsKey.focusDurationMinutes) private var focusDuration: Int = 25
-    @AppStorage(PrefsKey.focusBreakMinutes)    private var focusBreak: Int = 5
-    @AppStorage(PrefsKey.focusPlaySound)       private var focusSound: Bool = true
-    @AppStorage(PrefsKey.focusPlayHaptic)      private var focusHaptic: Bool = true
-    @AppStorage(PrefsKey.focusAutoStartNext)   private var focusAutoStart: Bool = false
-    @AppStorage(PrefsKey.dailyReviewEnabled)   private var reviewEnabled: Bool = false
-    @AppStorage(PrefsKey.dailyReviewHour)      private var reviewHour: Int = 21
-    @AppStorage(PrefsKey.dailyReviewMinute)    private var reviewMinute: Int = 0
+    @AppStorage(PrefsKey.rolloverPolicy)       private var rolloverRaw: String = RolloverPolicy.on.rawValue
 
+    // Build 28 — new preferences (UI saves values; deeper wiring in 29).
+    @AppStorage(PrefsKey.firstDayOfWeek)        private var firstDayOfWeek: Int = 1
+    @AppStorage(PrefsKey.timeFormat24Hour)      private var timeFormat24: Bool = false
+    @AppStorage(PrefsKey.defaultListSort)       private var defaultSortRaw: String = ListSortPreference.manual.rawValue
+    @AppStorage(PrefsKey.defaultReminderOffset) private var defaultReminderOffset: Double = ReminderOffsetPreset.none.rawValue
+    @AppStorage(PrefsKey.defaultNewTaskList)    private var defaultNewTaskList: String = "inbox"
+    @AppStorage(PrefsKey.showCompletedInToday)  private var showCompletedInToday: Bool = true
+    @AppStorage(PrefsKey.showCalendarEvents)    private var showCalendarEvents: Bool = true
+
+    // Local state
     @State private var testFeedback: String?
-    @State private var showingDailyReviewManual: Bool = false
-    @State private var showingRemindersImport: Bool = false
-    @State private var showingCSVImport: Bool = false
-    @State private var showingHelpFAQ: Bool = false
-    @State private var showingCrashLogs: Bool = false
+    @State private var showingRemindersImport = false
+    @State private var showingCSVImport = false
+    @State private var showingHelpFAQ = false
+    @State private var showingCrashLogs = false
+    @State private var showingEditProfile = false
+    @State private var showingMail = false
     @State private var crashLogCount: Int = 0
 
     @EnvironmentObject private var notifications: NotificationManager
@@ -39,602 +50,116 @@ struct SettingsView: View {
     @Query private var allLists: [TaskList]
 
     var body: some View {
-        ZStack {
-            Tokens.Color.bg.ignoresSafeArea()
-
-            List {
-                Section {
-                    heroProfileCard
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(top: Tokens.Space.xl, leading: Tokens.Space.lg, bottom: Tokens.Space.sm, trailing: Tokens.Space.lg))
-                }
-
-                Section {
-                    statsStrip
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(top: 0, leading: Tokens.Space.lg, bottom: Tokens.Space.lg, trailing: Tokens.Space.lg))
-                }
-
-                section(title: "Account") {
-                    AccountSection()
-                }
-
-                section(title: "iCloud sync") {
-                    CloudSyncSection()
-                }
-
-                section(title: "Connected accounts") {
-                    ConnectedAccountsSection()
-                }
-
-                section(title: "Import from…") {
-                    importRow(title: "Apple Reminders",
-                              subtitle: "Bring in your existing Reminders lists.",
-                              icon: "list.bullet.rectangle.portrait.fill",
-                              tint: Tokens.Color.accent2) {
-                        showingRemindersImport = true
-                    }
-                    Divider().background(Tokens.Color.borderSoft)
-                    importRow(title: "CSV file",
-                              subtitle: "Things 3, TickTick, Todoist, or any tool with CSV export.",
-                              icon: "doc.text.fill",
-                              tint: Tokens.Color.indigo) {
-                        showingCSVImport = true
-                    }
-                }
-
-                section(title: "Notifications") {
-                    notificationsToggleRow
-                    Divider().background(Tokens.Color.borderSoft)
-                    notificationsStatusRow
-                    Divider().background(Tokens.Color.borderSoft)
-                    sendTestRow
-                }
-
-                section(title: "Today layout") {
-                    HStack {
-                        rowLabel(icon: "calendar.badge.clock", text: "Show \"Coming up\"")
-                        Spacer()
-                        Toggle("", isOn: $showComingUp).labelsHidden().tint(Tokens.Color.accent)
-                    }
-                    .padding(.horizontal, Tokens.Space.lg)
-                    .padding(.vertical, Tokens.Space.md)
-                    if showComingUp {
-                        Divider().background(Tokens.Color.borderSoft)
-                        HStack {
-                            rowLabel(icon: "calendar", text: "Coming up window")
-                            Spacer()
-                            Picker("", selection: $comingUpDays) {
-                                Text("3 days").tag(3)
-                                Text("7 days").tag(7)
-                                Text("14 days").tag(14)
-                            }
-                            .labelsHidden()
-                            .tint(Tokens.Color.accent2)
-                        }
-                        .padding(.horizontal, Tokens.Space.lg)
-                        .padding(.vertical, Tokens.Space.md)
-                    }
-                    Divider().background(Tokens.Color.borderSoft)
-                    HStack {
-                        rowLabel(icon: "rectangle.compress.vertical", text: "Collapse carried over above")
-                        Spacer()
-                        Picker("", selection: $autoCollapseThreshold) {
-                            Text("3").tag(3)
-                            Text("5").tag(5)
-                            Text("10").tag(10)
-                        }
-                        .labelsHidden()
-                        .tint(Tokens.Color.accent2)
-                    }
-                    .padding(.horizontal, Tokens.Space.lg)
-                    .padding(.vertical, Tokens.Space.md)
-                }
-
-                section(title: "Daily brief") {
-                    HStack {
-                        rowLabel(icon: "sun.max", text: "Time of day")
-                        Spacer()
-                        DatePicker(
-                            "",
-                            selection: briefTimeBinding,
-                            displayedComponents: .hourAndMinute
-                        )
-                            .labelsHidden()
-                            .tint(Tokens.Color.accent)
-                    }
-                    .padding(.horizontal, Tokens.Space.lg)
-                    .padding(.vertical, Tokens.Space.md)
-                }
-
-                section(title: "Voice & Siri") {
-                    voiceIntroRow
-                    Divider().background(Tokens.Color.borderSoft)
-                    samplePhraseRow(
-                        phrase: "\"Hey Siri, add to Cadence: pay rent next Friday\"",
-                        icon: "plus.circle.fill",
-                        tint: Tokens.Color.accent
-                    )
-                    Divider().background(Tokens.Color.borderSoft)
-                    samplePhraseRow(
-                        phrase: "\"Hey Siri, what's on my plate today\"",
-                        icon: "list.bullet.rectangle.fill",
-                        tint: Tokens.Color.teal
-                    )
-                    Divider().background(Tokens.Color.borderSoft)
-                    samplePhraseRow(
-                        phrase: "\"Hey Siri, mark <task> done in Cadence\"",
-                        icon: "checkmark.circle.fill",
-                        tint: Tokens.Color.mint
-                    )
-                    Divider().background(Tokens.Color.borderSoft)
-                    samplePhraseRow(
-                        phrase: "\"Hey Siri, open Cadence\"",
-                        icon: "moon.stars.fill",
-                        tint: Tokens.Color.accent2
-                    )
-                }
-
-                section(title: "Daily review") {
-                    HStack {
-                        rowLabel(icon: "moon.zzz.fill", text: "Evening review")
-                        Spacer()
-                        Toggle("", isOn: $reviewEnabled)
-                            .tint(Tokens.Color.accent)
-                            .labelsHidden()
-                    }
-                    .padding(.horizontal, Tokens.Space.lg)
-                    .padding(.vertical, Tokens.Space.md)
-
-                    if reviewEnabled {
-                        Divider().background(Tokens.Color.borderSoft)
-                        HStack {
-                            rowLabel(icon: "clock", text: "Reminder time")
-                            Spacer()
-                            DatePicker("", selection: reviewTimeBinding, displayedComponents: .hourAndMinute)
-                                .labelsHidden()
-                                .tint(Tokens.Color.accent)
-                        }
-                        .padding(.horizontal, Tokens.Space.lg)
-                        .padding(.vertical, Tokens.Space.md)
-                    }
-
-                    Divider().background(Tokens.Color.borderSoft)
-                    Button {
-                        showingDailyReviewManual = true
-                    } label: {
-                        HStack {
-                            rowLabel(icon: "play.fill", text: "Run today's review")
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(Tokens.Color.text3)
-                        }
-                        .padding(.horizontal, Tokens.Space.lg)
-                        .padding(.vertical, Tokens.Space.md)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                section(title: "Focus") {
-                    VStack(alignment: .leading, spacing: Tokens.Space.sm) {
-                        rowLabel(icon: "timer", text: "Session length")
-                        focusDurationChips
-                    }
-                    .padding(.horizontal, Tokens.Space.lg)
-                    .padding(.vertical, Tokens.Space.md)
-                    Divider().background(Tokens.Color.borderSoft)
-                    VStack(alignment: .leading, spacing: Tokens.Space.sm) {
-                        rowLabel(icon: "cup.and.saucer.fill", text: "Break length")
-                        focusBreakChips
-                    }
-                    .padding(.horizontal, Tokens.Space.lg)
-                    .padding(.vertical, Tokens.Space.md)
-                    Divider().background(Tokens.Color.borderSoft)
-                    HStack {
-                        rowLabel(icon: "speaker.wave.2.fill", text: "Completion sound")
-                        Spacer()
-                        Toggle("", isOn: $focusSound).labelsHidden().tint(Tokens.Color.accent)
-                    }
-                    .padding(.horizontal, Tokens.Space.lg)
-                    .padding(.vertical, Tokens.Space.md)
-                    Divider().background(Tokens.Color.borderSoft)
-                    HStack {
-                        rowLabel(icon: "iphone.radiowaves.left.and.right", text: "Completion haptic")
-                        Spacer()
-                        Toggle("", isOn: $focusHaptic).labelsHidden().tint(Tokens.Color.accent)
-                    }
-                    .padding(.horizontal, Tokens.Space.lg)
-                    .padding(.vertical, Tokens.Space.md)
-                    Divider().background(Tokens.Color.borderSoft)
-                    HStack {
-                        rowLabel(icon: "arrow.triangle.2.circlepath", text: "Auto-start next session")
-                        Spacer()
-                        Toggle("", isOn: $focusAutoStart).labelsHidden().tint(Tokens.Color.accent)
-                    }
-                    .padding(.horizontal, Tokens.Space.lg)
-                    .padding(.vertical, Tokens.Space.md)
-                }
-
-                section(title: "Default rollover policy") {
-                    ForEach(RolloverPolicy.allCases, id: \.self) { policy in
-                        Button {
-                            Haptics.tap()
-                            rolloverRaw = policy.rawValue
-                        } label: {
-                            HStack(alignment: .top, spacing: Tokens.Space.md) {
-                                Image(systemName: rolloverRaw == policy.rawValue ? "checkmark.circle.fill" : "circle")
-                                    .font(.system(size: 18, weight: .semibold))
-                                    .foregroundStyle(rolloverRaw == policy.rawValue ? Tokens.Color.accent : Tokens.Color.text3)
-                                    .padding(.top, 1)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(policy.displayName)
-                                        .font(Tokens.Font.bodyEmphasis)
-                                        .foregroundStyle(Tokens.Color.text)
-                                    Text(policy.subtitle)
-                                        .font(Tokens.Font.caption)
-                                        .foregroundStyle(Tokens.Color.text3)
-                                }
-                                Spacer()
-                            }
-                            .padding(.horizontal, Tokens.Space.lg)
-                            .padding(.vertical, Tokens.Space.md)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        if policy != RolloverPolicy.allCases.last {
-                            Divider().background(Tokens.Color.borderSoft)
-                        }
-                    }
-                }
-
-                section(title: "Light · Dark · System") {
-                    HStack(spacing: Tokens.Space.sm) {
-                        ForEach(ThemeChoice.allCases) { choice in
-                            themeChip(choice)
-                        }
-                    }
-                    .padding(.horizontal, Tokens.Space.lg)
-                    .padding(.vertical, Tokens.Space.md)
-                }
-
-                section(title: "Appearance theme") {
-                    AppearanceThemePicker()
-                }
-
-                section(title: "App icon") {
-                    AppIconPicker()
-                }
-
-                section(title: "Help & FAQ") {
-                    helpFAQRow
-                }
-
-                section(title: "Danger zone") {
-                    ResetDataSection()
-                }
-
-                section(title: "About") {
-                    aboutVersionRow
-                    Divider().background(Tokens.Color.borderSoft)
-                    aboutPrivacyRow
-                    Divider().background(Tokens.Color.borderSoft)
-                    aboutTermsRow
-                    Divider().background(Tokens.Color.borderSoft)
-                    aboutGitHubRow
-                    if crashLogCount > 0 {
-                        Divider().background(Tokens.Color.borderSoft)
-                        aboutCrashLogsRow
-                    }
-                }
-
-                Section {
-                    Text("Made with care")
-                        .font(Tokens.Font.caption)
-                        .foregroundStyle(Tokens.Color.text3)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.top, Tokens.Space.lg)
-                        .padding(.bottom, 120)
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                }
-            }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .scrollIndicators(.hidden)
-        }
-        .onAppear {
-            Task { await notifications.refreshAuthorizationStatus() }
-        }
-        .onChange(of: notifsEnabled) { _, newValue in
-            Task {
-                if newValue {
-                    await notifications.rescheduleEverything(context: modelContext, requestIfNeeded: true)
-                } else {
-                    await notifications.cancelAll()
-                }
-            }
-        }
-        .onChange(of: reviewEnabled) { _, _ in
-            Task { await notifications.scheduleDailyReview(requestIfNeeded: true) }
-        }
-        .sheet(isPresented: $showingDailyReviewManual) {
-            DailyReviewSheet()
-        }
-        .sheet(isPresented: $showingRemindersImport) {
-            RemindersImportSheet()
-        }
-        .sheet(isPresented: $showingCSVImport) {
-            CSVImportSheet()
-        }
-        .sheet(isPresented: $showingHelpFAQ) {
-            HelpFAQSheet()
-        }
-        .sheet(isPresented: $showingCrashLogs) {
-            CrashLogsView()
-        }
-        .onAppear {
-            crashLogCount = MetricKitObserver.listLogs().count
-        }
-    }
-
-    private var aboutCrashLogsRow: some View {
-        Button {
-            Haptics.tap()
-            showingCrashLogs = true
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "exclamationmark.octagon")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Tokens.Color.rose)
-                    .frame(width: 18)
-                Text("Crash & diagnostic logs")
-                    .font(Tokens.Font.bodyEmphasis)
-                    .foregroundStyle(Tokens.Color.text)
-                Spacer()
-                Text("\(crashLogCount)")
-                    .font(Tokens.Font.caption)
-                    .foregroundStyle(Tokens.Color.text3)
-                    .monospacedDigit()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Tokens.Color.text3)
-            }
-            .padding(.horizontal, Tokens.Space.lg)
-            .padding(.vertical, Tokens.Space.md)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var helpFAQRow: some View {
-        Button {
-            Haptics.tap()
-            showingHelpFAQ = true
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "questionmark.circle.fill")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Tokens.Color.accent2)
-                    .frame(width: 18)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Questions, how-tos, troubleshooting")
-                        .font(Tokens.Font.bodyEmphasis)
-                        .foregroundStyle(Tokens.Color.text)
-                    Text("12 answers and a direct line to support.")
-                        .font(Tokens.Font.caption)
-                        .foregroundStyle(Tokens.Color.text3)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Tokens.Color.text3)
-            }
-            .padding(.horizontal, Tokens.Space.lg)
-            .padding(.vertical, Tokens.Space.md)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-
-    /// Build 22: reusable row for the Import from… section. Same visual
-    /// language as the Account / Switch Apple ID rows in AccountSection.
-    private func importRow(title: String, subtitle: String, icon: String, tint: Color, action: @escaping () -> Void) -> some View {
-        Button(action: {
-            Haptics.tap()
-            action()
-        }) {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(tint)
-                    .frame(width: 18)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(Tokens.Font.bodyEmphasis)
-                        .foregroundStyle(Tokens.Color.text)
-                    Text(subtitle)
-                        .font(Tokens.Font.caption)
-                        .foregroundStyle(Tokens.Color.text3)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Tokens.Color.text3)
-            }
-            .padding(.horizontal, Tokens.Space.lg)
-            .padding(.vertical, Tokens.Space.md)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-
-    // MARK: Voice & Siri rows (Build 20)
-
-    private var voiceIntroRow: some View {
-        HStack(alignment: .top, spacing: Tokens.Space.md) {
+        NavigationStack {
             ZStack {
-                Circle()
-                    .fill(Tokens.Color.accent.opacity(0.18))
-                    .frame(width: 36, height: 36)
-                Image(systemName: "mic.fill")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Tokens.Color.accent2)
+                Tokens.Color.bg.ignoresSafeArea()
+                ScrollView {
+                    VStack(spacing: Tokens.Space.lg) {
+                        profileCard
+                        insightsStrip
+
+                        accountSection
+                        appearanceSection
+                        notificationsSection
+                        productivitySection
+                        preferencesSection
+                        helpSection
+                        aboutSection
+
+                        footer
+                    }
+                    .padding(.horizontal, Tokens.Space.lg)
+                    .padding(.top, Tokens.Space.lg)
+                }
+                .scrollIndicators(.hidden)
             }
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Talk to Cadence")
-                    .font(Tokens.Font.bodyEmphasis)
-                    .foregroundStyle(Tokens.Color.text)
-                Text("Siri can add tasks, complete them, and read out your day. Try the phrases below or build your own in Shortcuts.")
-                    .font(Tokens.Font.caption)
+            .navigationBarHidden(true)
+            .onAppear {
+                Task { await notifications.refreshAuthorizationStatus() }
+                hydrateFirstDayOfWeekIfNeeded()
+                hydrateTimeFormatIfNeeded()
+                crashLogCount = MetricKitObserver.listLogs().count
+            }
+            .onChange(of: notifsEnabled) { _, newValue in
+                Task {
+                    if newValue {
+                        await notifications.rescheduleEverything(context: modelContext, requestIfNeeded: true)
+                    } else {
+                        await notifications.cancelAll()
+                    }
+                }
+            }
+            .sheet(isPresented: $showingEditProfile) { EditProfileSheet() }
+            .sheet(isPresented: $showingRemindersImport) { RemindersImportSheet() }
+            .sheet(isPresented: $showingCSVImport) { CSVImportSheet() }
+            .sheet(isPresented: $showingHelpFAQ) { HelpFAQSheet() }
+            .sheet(isPresented: $showingCrashLogs) { CrashLogsView() }
+        }
+    }
+
+    // MARK: - Profile card
+
+    private var profileCard: some View {
+        Button {
+            Haptics.tap()
+            showingEditProfile = true
+        } label: {
+            HStack(spacing: Tokens.Space.md) {
+                avatarBadge
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(authSession.state.user?.displayName ?? "Cadence")
+                        .font(.system(size: 22, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Tokens.Color.text)
+                        .lineLimit(1)
+                    emailLine
+                    if let memberSince = authSession.state.user?.memberSinceLabel {
+                        Text(memberSince.uppercased())
+                            .font(Tokens.Font.label)
+                            .kerning(1.0)
+                            .foregroundStyle(Tokens.Color.text3)
+                            .padding(.top, 2)
+                    }
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Tokens.Color.text3)
             }
-            Spacer()
+            .padding(Tokens.Space.lg)
+            .background(Tokens.Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous)
+                    .stroke(Tokens.Color.borderSoft, lineWidth: 0.5)
+            )
         }
-        .padding(.horizontal, Tokens.Space.lg)
-        .padding(.vertical, Tokens.Space.md)
-    }
-
-    private func samplePhraseRow(phrase: String, icon: String, tint: Color) -> some View {
-        HStack(spacing: Tokens.Space.md) {
-            Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(tint)
-                .frame(width: 22)
-            Text(phrase)
-                .font(.system(size: 13, weight: .regular, design: .rounded))
-                .foregroundStyle(Tokens.Color.text2)
-                .italic()
-            Spacer()
-        }
-        .padding(.horizontal, Tokens.Space.lg)
-        .padding(.vertical, Tokens.Space.md)
-    }
-
-    // MARK: Focus duration chips
-
-    private var focusDurationChips: some View {
-        HStack(spacing: Tokens.Space.sm) {
-            ForEach([15, 25, 30, 45, 60], id: \.self) { mins in
-                Button {
-                    Haptics.tap()
-                    focusDuration = mins
-                } label: {
-                    Text("\(mins)")
-                        .font(Tokens.Font.bodyEmphasis)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, Tokens.Space.sm)
-                        .background(focusDuration == mins ? Tokens.Color.accent.opacity(0.22) : Tokens.Color.surface2)
-                        .foregroundStyle(focusDuration == mins ? Tokens.Color.accent2 : Tokens.Color.text2)
-                        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous)
-                                .stroke(focusDuration == mins ? Tokens.Color.accent : Tokens.Color.borderSoft, lineWidth: focusDuration == mins ? 1 : 0.5)
-                        )
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    private var focusBreakChips: some View {
-        HStack(spacing: Tokens.Space.sm) {
-            ForEach([5, 10, 15], id: \.self) { mins in
-                Button {
-                    Haptics.tap()
-                    focusBreak = mins
-                } label: {
-                    Text("\(mins) min")
-                        .font(Tokens.Font.bodyEmphasis)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, Tokens.Space.sm)
-                        .background(focusBreak == mins ? Tokens.Color.mint.opacity(0.22) : Tokens.Color.surface2)
-                        .foregroundStyle(focusBreak == mins ? Tokens.Color.mint : Tokens.Color.text2)
-                        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous)
-                                .stroke(focusBreak == mins ? Tokens.Color.mint : Tokens.Color.borderSoft, lineWidth: focusBreak == mins ? 1 : 0.5)
-                        )
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    private var reviewTimeBinding: Binding<Date> {
-        Binding(
-            get: {
-                Calendar.current.date(bySettingHour: reviewHour, minute: reviewMinute, second: 0, of: .now) ?? .now
-            },
-            set: { newValue in
-                let comps = Calendar.current.dateComponents([.hour, .minute], from: newValue)
-                reviewHour = comps.hour ?? 21
-                reviewMinute = comps.minute ?? 0
-                Task { await notifications.scheduleDailyReview(requestIfNeeded: false) }
-            }
-        )
-    }
-
-    // MARK: Hero profile card
-
-    /// The big "you" hero at the top of the You tab — 88pt gradient avatar
-    /// with initials, big rounded display name, email (or "Private email"
-    /// for the relay), and "Member since" eyebrow.
-    private var heroProfileCard: some View {
-        let user = authSession.state.user
-        return VStack(spacing: Tokens.Space.md) {
-            avatarBadge
-
-            VStack(spacing: 4) {
-                Text(user?.displayName ?? "Cadence")
-                    .font(.system(size: 24, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Tokens.Color.text)
-                    .multilineTextAlignment(.center)
-
-                emailLine
-                    .multilineTextAlignment(.center)
-
-                if let memberSince = user?.memberSinceLabel {
-                    Text(memberSince.uppercased())
-                        .font(Tokens.Font.label)
-                        .kerning(1.0)
-                        .foregroundStyle(Tokens.Color.text3)
-                        .padding(.top, 2)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, Tokens.Space.lg)
+        .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(profileAccessibilityLabel)
     }
 
-    /// 88pt gradient circle with initials, matching the spec's violet/deep
-    /// violet gradient (Tokens.Color.accent → accentDeep, which are #7C5CFF
-    /// and #5B3CFA respectively).
     private var avatarBadge: some View {
-        ZStack {
+        let gradient = currentAvatarGradient
+        return ZStack {
             Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [Tokens.Color.accent, Tokens.Color.accentDeep],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: 88, height: 88)
-                .shadow(color: Tokens.Color.accentGlow, radius: 14, x: 0, y: 6)
+                .fill(LinearGradient(
+                    colors: gradient.colors,
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ))
+                .frame(width: 64, height: 64)
+                .shadow(color: gradient.colors.first!.opacity(0.45), radius: 10, x: 0, y: 4)
             Text(authSession.state.user?.avatarInitials ?? "C")
-                .font(.system(size: 32, weight: .bold, design: .rounded))
+                .font(.system(size: 22, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
         }
     }
 
-    /// Email line — uses an italicized "Private email" label when Apple's
-    /// private relay is in use, since the actual address is noise.
+    private var currentAvatarGradient: AvatarGradient {
+        guard let id = authSession.state.user?.appleUserIdentifier else { return .violet }
+        return AvatarGradient.resolve(UserScopedPrefs.avatarColorKey(for: id))
+    }
+
     @ViewBuilder
     private var emailLine: some View {
         let user = authSession.state.user
@@ -644,12 +169,13 @@ struct SettingsView: View {
                 .foregroundStyle(Tokens.Color.text3)
         } else if let user, user.isUsingHiddenEmail {
             Text("Private email")
-                .font(.system(size: 14, weight: .regular).italic())
+                .font(.system(size: 13).italic())
                 .foregroundStyle(Tokens.Color.text2)
         } else if let email = user?.email, !email.isEmpty {
             Text(email)
                 .font(Tokens.Font.body)
                 .foregroundStyle(Tokens.Color.text2)
+                .lineLimit(1)
         } else {
             Text("Signed in with Apple ID")
                 .font(Tokens.Font.body)
@@ -660,43 +186,43 @@ struct SettingsView: View {
     private var profileAccessibilityLabel: String {
         guard let user = authSession.state.user else { return "Profile. Not signed in." }
         var parts: [String] = ["Profile", user.displayName]
-        if user.isUsingHiddenEmail {
-            parts.append("Private email")
-        } else if let email = user.email, !email.isEmpty {
-            parts.append(email)
-        }
-        if let memberSince = user.memberSinceLabel {
-            parts.append(memberSince)
-        }
+        if user.isUsingHiddenEmail { parts.append("Private email") }
+        else if let email = user.email, !email.isEmpty { parts.append(email) }
+        if let memberSince = user.memberSinceLabel { parts.append(memberSince) }
+        parts.append("Tap to edit.")
         return parts.joined(separator: ". ")
     }
 
-    // MARK: Stats strip
+    // MARK: - Insights strip
 
-    /// Three-card stat row matching the Today stat-card visual treatment.
-    /// Pulls from SwiftData @Query so values stay live as tasks complete.
-    private var statsStrip: some View {
+    private var insightsStrip: some View {
         HStack(spacing: Tokens.Space.sm) {
             statCard(value: completedToday, label: "today", accent: Tokens.Color.accent)
             statCard(value: completedThisWeek, label: "this week", accent: Tokens.Color.teal)
-            statCard(value: listsOwned, label: listsOwned == 1 ? "list" : "lists", accent: Tokens.Color.amber)
+            statCard(value: longestStreak, label: longestStreak == 1 ? "day streak" : "day streak", accent: Tokens.Color.amber, icon: "flame.fill")
         }
     }
 
-    private func statCard(value: Int, label: String, accent: Color) -> some View {
+    private func statCard(value: Int, label: String, accent: Color, icon: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("\(value)")
-                .font(.system(size: 26, weight: .bold, design: .rounded))
-                .foregroundStyle(Tokens.Color.text)
-                .monospacedDigit()
+            HStack(spacing: 4) {
+                Text("\(value)")
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .foregroundStyle(Tokens.Color.text)
+                    .monospacedDigit()
+                if let icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(accent)
+                }
+            }
             Text(label.uppercased())
                 .font(Tokens.Font.label)
                 .kerning(1.1)
                 .foregroundStyle(accent)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, Tokens.Space.md)
-        .padding(.vertical, Tokens.Space.md)
+        .padding(Tokens.Space.md)
         .background(Tokens.Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous))
         .overlay(
@@ -707,116 +233,99 @@ struct SettingsView: View {
         .accessibilityLabel("\(value) \(label)")
     }
 
-    // MARK: Stat derivations
-
     private var completedToday: Int {
         let cal = Calendar.current
-        return allTasks.filter { task in
-            task.status == .completed
-                && task.parent == nil
-                && (task.completedAt.map(cal.isDateInToday) ?? false)
-        }.count
+        return allTasks.filter { $0.status == .completed && $0.parent == nil
+            && ($0.completedAt.map(cal.isDateInToday) ?? false) }.count
     }
 
     private var completedThisWeek: Int {
         let cal = Calendar.current
         let cutoff = cal.date(byAdding: .day, value: -7, to: .now) ?? .now
-        return allTasks.filter { task in
-            task.status == .completed
-                && task.parent == nil
-                && (task.completedAt.map { $0 >= cutoff } ?? false)
-        }.count
+        return allTasks.filter { $0.status == .completed && $0.parent == nil
+            && ($0.completedAt.map { $0 >= cutoff } ?? false) }.count
     }
 
-    /// "Owned" = not a list someone shared TO us. Counts both private lists
-    /// and lists we ourselves are sharing with others.
-    private var listsOwned: Int {
-        allLists.filter { !$0.isSharedAsParticipant }.count
+    /// Build 28: crude longest-current-streak across all habit tasks.
+    /// Counts consecutive past days each habit-flagged recurring task
+    /// has been completed, then returns the max. Insights drill-in
+    /// (Build 29) will replace this with per-habit history.
+    private var longestStreak: Int {
+        let habits = allTasks.filter { $0.isHabit && $0.parent == nil }
+        guard !habits.isEmpty else { return 0 }
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: .now)
+        var best = 0
+        for habit in habits {
+            let completedDays = Set((habit.habitCompletions ?? []).map { cal.startOfDay(for: $0.completedOn) })
+            var streak = 0
+            var cursor = today
+            while completedDays.contains(cursor) {
+                streak += 1
+                guard let prev = cal.date(byAdding: .day, value: -1, to: cursor) else { break }
+                cursor = prev
+            }
+            best = max(best, streak)
+        }
+        return best
     }
 
-    // MARK: About rows
+    // MARK: - Section: Account
 
-    private var aboutVersionRow: some View {
-        HStack {
-            rowLabel(icon: "app.badge", text: "Cadence")
-            Spacer()
-            Text("v\(appVersion) · build \(buildNumber)")
-                .font(Tokens.Font.body)
-                .foregroundStyle(Tokens.Color.text2)
-                .monospacedDigit()
+    private var accountSection: some View {
+        section(title: "Account") {
+            chevronRow(icon: "applelogo", iconTint: Tokens.Color.text2,
+                       title: "Apple ID",
+                       subtitle: appleIDSubtitle,
+                       destination: AnyView(AppleIDSubscreen()))
+            Divider().background(Tokens.Color.borderSoft)
+            chevronRow(icon: "calendar.badge.plus", iconTint: Tokens.Color.teal,
+                       title: "Connected accounts",
+                       subtitle: "Google Calendar and other services.",
+                       destination: AnyView(ConnectedAccountsSubscreen()))
+            Divider().background(Tokens.Color.borderSoft)
+            chevronRow(icon: "lock.shield.fill", iconTint: Tokens.Color.mint,
+                       title: "Data & privacy",
+                       subtitle: "Export your data or delete your account.",
+                       destination: AnyView(DataPrivacySubscreen()))
+        }
+    }
+
+    private var appleIDSubtitle: String {
+        guard let user = authSession.state.user else { return "Sign in with Apple to enable sync." }
+        if user.isUsingHiddenEmail { return "Private relay" }
+        return user.email ?? "Signed in"
+    }
+
+    // MARK: - Section: Appearance
+
+    private var appearanceSection: some View {
+        section(title: "Appearance") {
+            chevronRow(icon: "paintpalette.fill", iconTint: Tokens.Color.accent,
+                       title: "Theme",
+                       subtitle: "Accent colors for the whole app.",
+                       destination: AnyView(ThemeSubscreen()))
+            Divider().background(Tokens.Color.borderSoft)
+            chevronRow(icon: "app.badge.fill", iconTint: Tokens.Color.indigo,
+                       title: "App icon",
+                       subtitle: "8 home-screen icons to choose from.",
+                       destination: AnyView(AppIconSubscreen()))
+            Divider().background(Tokens.Color.borderSoft)
+            lightDarkRow
+        }
+    }
+
+    private var lightDarkRow: some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.sm) {
+            SubscreenRowLabel(icon: "moon.circle", text: "Light · Dark · System")
+            HStack(spacing: Tokens.Space.sm) {
+                ForEach(ThemeChoice.allCases) { choice in
+                    themeChip(choice)
+                }
+            }
         }
         .padding(.horizontal, Tokens.Space.lg)
         .padding(.vertical, Tokens.Space.md)
-    }
-
-    private var aboutPrivacyRow: some View {
-        externalLinkRow(
-            icon: "hand.raised.fill",
-            tint: Tokens.Color.accent,
-            title: "Privacy Policy",
-            url: "https://trippcarter.github.io/cadence-ios/privacy"
-        )
-    }
-
-    private var aboutTermsRow: some View {
-        externalLinkRow(
-            icon: "doc.text.fill",
-            tint: Tokens.Color.teal,
-            title: "Terms of Service",
-            url: "https://trippcarter.github.io/cadence-ios/terms"
-        )
-    }
-
-    private func externalLinkRow(icon: String, tint: Color, title: String, url: String) -> some View {
-        Button {
-            Haptics.tap()
-            if let u = URL(string: url) { openURL(u) }
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(tint)
-                    .frame(width: 18)
-                Text(title)
-                    .font(Tokens.Font.bodyEmphasis)
-                    .foregroundStyle(Tokens.Color.text)
-                Spacer()
-                Image(systemName: "arrow.up.right.square")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Tokens.Color.text3)
-            }
-            .padding(.horizontal, Tokens.Space.lg)
-            .padding(.vertical, Tokens.Space.md)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var aboutGitHubRow: some View {
-        Button {
-            Haptics.tap()
-            if let url = URL(string: "https://cadence.app") {
-                openURL(url)
-            }
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "globe")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Tokens.Color.accent2)
-                    .frame(width: 18)
-                Text("Visit cadence.app")
-                    .font(Tokens.Font.bodyEmphasis)
-                    .foregroundStyle(Tokens.Color.accent2)
-                Spacer()
-                Image(systemName: "arrow.up.right.square")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Tokens.Color.text3)
-            }
-            .padding(.horizontal, Tokens.Space.lg)
-            .padding(.vertical, Tokens.Space.md)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
     }
 
     private func themeChip(_ choice: ThemeChoice) -> some View {
@@ -824,239 +333,397 @@ struct SettingsView: View {
         return Button {
             Haptics.tap()
             themeRaw = choice.rawValue
-            NSLog("[THEME] user picked %@ (rawValue=%@)", choice.displayName, choice.rawValue)
         } label: {
-            HStack(spacing: 8) {
-                themeSwatch(choice)
-                Text(choice.displayName)
-                    .font(Tokens.Font.bodyEmphasis)
-            }
-            .padding(.vertical, Tokens.Space.sm)
-            .frame(maxWidth: .infinity)
-            .background(isSelected ? Tokens.Color.accent.opacity(0.20) : Tokens.Color.surface2)
-            .foregroundStyle(isSelected ? Tokens.Color.accent2 : Tokens.Color.text2)
-            .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous)
-                    .stroke(isSelected ? Tokens.Color.accent : Tokens.Color.borderSoft, lineWidth: isSelected ? 1 : 0.5)
-            )
+            Text(choice.displayName)
+                .font(Tokens.Font.bodyEmphasis)
+                .padding(.vertical, Tokens.Space.sm)
+                .frame(maxWidth: .infinity)
+                .background(isSelected ? Tokens.Color.accent.opacity(0.20) : Tokens.Color.surface2)
+                .foregroundStyle(isSelected ? Tokens.Color.accent2 : Tokens.Color.text2)
+                .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous)
+                        .stroke(isSelected ? Tokens.Color.accent : Tokens.Color.borderSoft, lineWidth: isSelected ? 1 : 0.5)
+                )
         }
         .buttonStyle(.plain)
     }
 
-    /// Small preview swatch next to each theme name: light circle, dark
-    /// circle, or a phone icon for "System".
-    @ViewBuilder
-    private func themeSwatch(_ choice: ThemeChoice) -> some View {
-        switch choice {
-        case .light:
-            Circle()
-                .fill(Color(hex: 0xFAF7F1))
-                .frame(width: 14, height: 14)
-                .overlay(Circle().stroke(Tokens.Color.borderSoft, lineWidth: 0.5))
-        case .dark:
-            Circle()
-                .fill(Color(hex: 0x07080C))
-                .frame(width: 14, height: 14)
-                .overlay(Circle().stroke(Tokens.Color.border, lineWidth: 0.5))
-        case .system:
-            Image(systemName: "iphone")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Tokens.Color.text2)
+    // MARK: - Section: Notifications
+
+    private var notificationsSection: some View {
+        section(title: "Notifications") {
+            HStack {
+                SubscreenRowLabel(icon: "bell.fill", text: "Reminders enabled")
+                Spacer()
+                Toggle("", isOn: $notifsEnabled).labelsHidden().tint(Tokens.Color.accent)
+            }
+            .padding(.horizontal, Tokens.Space.lg)
+            .padding(.vertical, Tokens.Space.md)
+            Divider().background(Tokens.Color.borderSoft)
+            chevronRow(icon: "sun.max", iconTint: Tokens.Color.amber,
+                       title: "Daily morning brief",
+                       subtitle: "A friendly nudge with your day's plan.",
+                       destination: AnyView(DailyBriefSubscreen()))
+            Divider().background(Tokens.Color.borderSoft)
+            chevronRow(icon: "moon.zzz.fill", iconTint: Tokens.Color.indigo,
+                       title: "Daily review",
+                       subtitle: "Look back at what you finished.",
+                       destination: AnyView(DailyReviewSubscreen()))
+            Divider().background(Tokens.Color.borderSoft)
+            chevronRow(icon: "moon.fill", iconTint: Tokens.Color.accent2,
+                       title: "Quiet hours",
+                       subtitle: "Silence non-urgent reminders at night.",
+                       destination: AnyView(QuietHoursSubscreen()))
         }
     }
 
-    // MARK: Section helper
+    // MARK: - Section: Productivity
+
+    private var productivitySection: some View {
+        section(title: "Productivity") {
+            chevronRow(icon: "timer", iconTint: Tokens.Color.accent,
+                       title: "Focus settings",
+                       subtitle: "Session length, break, sound, haptic.",
+                       destination: AnyView(FocusSubscreen()))
+            Divider().background(Tokens.Color.borderSoft)
+            chevronRow(icon: "mic.fill", iconTint: Tokens.Color.accent2,
+                       title: "Voice & Siri",
+                       subtitle: "Sample phrases and Shortcut actions.",
+                       destination: AnyView(VoiceSiriSubscreen()))
+            Divider().background(Tokens.Color.borderSoft)
+            chevronRow(icon: "calendar.day.timeline.left", iconTint: Tokens.Color.teal,
+                       title: "Today layout",
+                       subtitle: "Coming up window, carried-over collapse.",
+                       destination: AnyView(TodayLayoutSubscreen()))
+            Divider().background(Tokens.Color.borderSoft)
+            chevronRow(icon: "tray.and.arrow.down.fill", iconTint: Tokens.Color.amber,
+                       title: "Import data",
+                       subtitle: "Apple Reminders or CSV files.",
+                       destination: AnyView(ImportSubscreen(
+                           onApple: { showingRemindersImport = true },
+                           onCSV: { showingCSVImport = true }
+                       )))
+        }
+    }
+
+    // MARK: - Section: Preferences (NEW)
+
+    private var preferencesSection: some View {
+        section(title: "Preferences") {
+            // First day of week
+            HStack {
+                SubscreenRowLabel(icon: "calendar", text: "First day of week")
+                Spacer()
+                Picker("", selection: $firstDayOfWeek) {
+                    Text("Sunday").tag(1)
+                    Text("Monday").tag(2)
+                }
+                .labelsHidden()
+                .tint(Tokens.Color.accent2)
+            }
+            .padding(.horizontal, Tokens.Space.lg)
+            .padding(.vertical, Tokens.Space.md)
+            Divider().background(Tokens.Color.borderSoft)
+
+            // Time format
+            HStack {
+                SubscreenRowLabel(icon: "clock", text: "Time format")
+                Spacer()
+                Picker("", selection: $timeFormat24) {
+                    Text("12-hour").tag(false)
+                    Text("24-hour").tag(true)
+                }
+                .labelsHidden()
+                .tint(Tokens.Color.accent2)
+            }
+            .padding(.horizontal, Tokens.Space.lg)
+            .padding(.vertical, Tokens.Space.md)
+            Divider().background(Tokens.Color.borderSoft)
+
+            // Default list sort
+            HStack {
+                SubscreenRowLabel(icon: "arrow.up.arrow.down.circle", text: "Default sort for lists")
+                Spacer()
+                Picker("", selection: $defaultSortRaw) {
+                    ForEach(ListSortPreference.allCases) { opt in
+                        Text(opt.displayName).tag(opt.rawValue)
+                    }
+                }
+                .labelsHidden()
+                .tint(Tokens.Color.accent2)
+            }
+            .padding(.horizontal, Tokens.Space.lg)
+            .padding(.vertical, Tokens.Space.md)
+            Divider().background(Tokens.Color.borderSoft)
+
+            // Default reminder offset
+            HStack {
+                SubscreenRowLabel(icon: "bell.badge", text: "Default reminder offset")
+                Spacer()
+                Picker("", selection: $defaultReminderOffset) {
+                    ForEach(ReminderOffsetPreset.allCases) { preset in
+                        Text(preset.displayName).tag(preset.rawValue)
+                    }
+                }
+                .labelsHidden()
+                .tint(Tokens.Color.accent2)
+            }
+            .padding(.horizontal, Tokens.Space.lg)
+            .padding(.vertical, Tokens.Space.md)
+            Divider().background(Tokens.Color.borderSoft)
+
+            // Default new-task list
+            HStack {
+                SubscreenRowLabel(icon: "tray.fill", text: "Default new-task list")
+                Spacer()
+                Picker("", selection: $defaultNewTaskList) {
+                    Text("Inbox").tag("inbox")
+                    Text("Last used").tag("last-used")
+                    ForEach(userLists, id: \.id) { list in
+                        Text(list.name).tag(list.id.uuidString)
+                    }
+                }
+                .labelsHidden()
+                .tint(Tokens.Color.accent2)
+            }
+            .padding(.horizontal, Tokens.Space.lg)
+            .padding(.vertical, Tokens.Space.md)
+            Divider().background(Tokens.Color.borderSoft)
+
+            // Show completed in Today
+            HStack {
+                SubscreenRowLabel(icon: "checkmark.seal", text: "Show completed in Today")
+                Spacer()
+                Toggle("", isOn: $showCompletedInToday).labelsHidden().tint(Tokens.Color.accent)
+            }
+            .padding(.horizontal, Tokens.Space.lg)
+            .padding(.vertical, Tokens.Space.md)
+            Divider().background(Tokens.Color.borderSoft)
+
+            // Show calendar events
+            HStack {
+                SubscreenRowLabel(icon: "calendar.badge.exclamationmark", text: "Show calendar events")
+                Spacer()
+                Toggle("", isOn: $showCalendarEvents).labelsHidden().tint(Tokens.Color.accent)
+            }
+            .padding(.horizontal, Tokens.Space.lg)
+            .padding(.vertical, Tokens.Space.md)
+        }
+    }
+
+    private var userLists: [TaskList] {
+        allLists.filter { !$0.isHidden && !$0.isSharedAsParticipant }
+            .sorted { $0.sortOrder < $1.sortOrder }
+    }
+
+    // MARK: - Section: Help & Support
+
+    private var helpSection: some View {
+        section(title: "Help & support") {
+            Button {
+                Haptics.tap()
+                showingHelpFAQ = true
+            } label: {
+                rowContent(icon: "questionmark.circle.fill",
+                           iconTint: Tokens.Color.accent2,
+                           title: "Help & FAQ",
+                           subtitle: "Searchable answers to common questions.",
+                           trailing: { Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(Tokens.Color.text3) })
+            }
+            .buttonStyle(.plain)
+            Divider().background(Tokens.Color.borderSoft)
+            Button {
+                Haptics.tap()
+                openSupport()
+            } label: {
+                rowContent(icon: "envelope.fill",
+                           iconTint: Tokens.Color.mint,
+                           title: "Contact support",
+                           subtitle: "Email support@cadence.app — real human, real reply.",
+                           trailing: { Image(systemName: "arrow.up.right.square").font(.system(size: 12, weight: .semibold)).foregroundStyle(Tokens.Color.text3) })
+            }
+            .buttonStyle(.plain)
+            Divider().background(Tokens.Color.borderSoft)
+            chevronRow(icon: "sparkles", iconTint: Tokens.Color.amber,
+                       title: "What's new",
+                       subtitle: "Per-build release notes.",
+                       destination: AnyView(WhatsNewSubscreen()))
+        }
+    }
+
+    private func openSupport() {
+        let subject = "Cadence Support: \(authSession.state.user?.displayName ?? "user")"
+        let body = "\n\n--- please write above this line ---\nCadence v\(appVersion) (build \(buildNumber))"
+        let subj = subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let b = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        if let url = URL(string: "mailto:support@cadence.app?subject=\(subj)&body=\(b)") {
+            openURL(url)
+        }
+    }
+
+    // MARK: - Section: About
+
+    private var aboutSection: some View {
+        section(title: "About") {
+            HStack {
+                SubscreenRowLabel(icon: "app.badge", text: "Cadence")
+                Spacer()
+                Text("v\(appVersion) · build \(buildNumber)")
+                    .font(Tokens.Font.body)
+                    .foregroundStyle(Tokens.Color.text2)
+                    .monospacedDigit()
+            }
+            .padding(.horizontal, Tokens.Space.lg)
+            .padding(.vertical, Tokens.Space.md)
+            Divider().background(Tokens.Color.borderSoft)
+            externalLinkRow(icon: "hand.raised.fill", tint: Tokens.Color.accent,
+                            title: "Privacy Policy",
+                            url: "https://trippcarter.github.io/cadence-ios/privacy")
+            Divider().background(Tokens.Color.borderSoft)
+            externalLinkRow(icon: "doc.text.fill", tint: Tokens.Color.teal,
+                            title: "Terms of Service",
+                            url: "https://trippcarter.github.io/cadence-ios/terms")
+            Divider().background(Tokens.Color.borderSoft)
+            chevronRow(icon: "heart.text.square.fill", iconTint: Tokens.Color.rose,
+                       title: "Acknowledgments",
+                       subtitle: "Open-source libraries Cadence uses.",
+                       destination: AnyView(AcknowledgmentsSubscreen()))
+            if crashLogCount > 0 {
+                Divider().background(Tokens.Color.borderSoft)
+                Button {
+                    Haptics.tap()
+                    showingCrashLogs = true
+                } label: {
+                    rowContent(icon: "exclamationmark.octagon",
+                               iconTint: Tokens.Color.rose,
+                               title: "Crash & diagnostic logs",
+                               subtitle: nil,
+                               trailing: {
+                                   HStack(spacing: 6) {
+                                       Text("\(crashLogCount)")
+                                           .font(Tokens.Font.caption)
+                                           .foregroundStyle(Tokens.Color.text3)
+                                           .monospacedDigit()
+                                       Image(systemName: "chevron.right")
+                                           .font(.system(size: 12, weight: .semibold))
+                                           .foregroundStyle(Tokens.Color.text3)
+                                   }
+                               })
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    // MARK: - Generic chrome
 
     @ViewBuilder
     private func section<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
-        Section {
-            VStack(spacing: 0) {
-                content()
-            }
-            .background(Tokens.Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous)
-                    .stroke(Tokens.Color.borderSoft, lineWidth: 0.5)
-            )
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
-            .listRowInsets(EdgeInsets(top: 0, leading: Tokens.Space.lg, bottom: Tokens.Space.sm, trailing: Tokens.Space.lg))
-        } header: {
-            GroupHeader(title: title, count: 0, accent: Tokens.Color.text3, trailingLabel: "")
-                .textCase(nil)
+        VStack(alignment: .leading, spacing: Tokens.Space.sm) {
+            Text(title.uppercased())
+                .font(Tokens.Font.label)
+                .kerning(1.0)
+                .foregroundStyle(Tokens.Color.text3)
+                .padding(.leading, Tokens.Space.sm)
+            VStack(spacing: 0) { content() }
+                .background(Tokens.Color.surface)
+                .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous)
+                        .stroke(Tokens.Color.borderSoft, lineWidth: 0.5)
+                )
         }
-        .listSectionSeparator(.hidden)
     }
 
-    private func rowLabel(icon: String, text: String) -> some View {
+    private func chevronRow(icon: String, iconTint: Color, title: String, subtitle: String?, destination: AnyView) -> some View {
+        NavigationLink {
+            destination
+        } label: {
+            rowContent(icon: icon, iconTint: iconTint, title: title, subtitle: subtitle,
+                       trailing: {
+                           Image(systemName: "chevron.right")
+                               .font(.system(size: 12, weight: .semibold))
+                               .foregroundStyle(Tokens.Color.text3)
+                       })
+        }
+        .buttonStyle(.plain)
+        .simultaneousGesture(TapGesture().onEnded { Haptics.tap() })
+    }
+
+    private func rowContent<Trailing: View>(icon: String,
+                                             iconTint: Color,
+                                             title: String,
+                                             subtitle: String?,
+                                             @ViewBuilder trailing: () -> Trailing) -> some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Tokens.Color.text3)
+                .foregroundStyle(iconTint)
                 .frame(width: 18)
-            Text(text)
-                .font(Tokens.Font.bodyEmphasis)
-                .foregroundStyle(Tokens.Color.text)
-        }
-    }
-
-    // MARK: Daily brief binding
-
-    /// DatePicker bound directly to the two @AppStorage components so its setter
-    /// only fires on real user interaction — never on initial render.
-    private var briefTimeBinding: Binding<Date> {
-        Binding(
-            get: {
-                Calendar.current.date(bySettingHour: briefHour, minute: briefMinute, second: 0, of: .now) ?? .now
-            },
-            set: { newValue in
-                let comps = Calendar.current.dateComponents([.hour, .minute], from: newValue)
-                briefHour = comps.hour ?? 7
-                briefMinute = comps.minute ?? 30
-                Task { await notifications.scheduleDailyBrief(context: modelContext) }
-            }
-        )
-    }
-
-    // MARK: Notifications rows
-
-    private var notificationsToggleRow: some View {
-        HStack {
-            rowLabel(icon: "bell.fill", text: "Reminders enabled")
-            Spacer()
-            Toggle("", isOn: $notifsEnabled)
-                .tint(Tokens.Color.accent)
-                .labelsHidden()
-        }
-        .padding(.horizontal, Tokens.Space.lg)
-        .padding(.vertical, Tokens.Space.md)
-    }
-
-    private var notificationsStatusRow: some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.sm) {
-            HStack(spacing: 8) {
-                Image(systemName: statusIcon)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(statusColor)
-                    .frame(width: 18)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(statusTitle)
-                        .font(Tokens.Font.bodyEmphasis)
-                        .foregroundStyle(Tokens.Color.text)
-                    Text(statusSubtitle)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(Tokens.Font.bodyEmphasis)
+                    .foregroundStyle(Tokens.Color.text)
+                if let subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
                         .font(Tokens.Font.caption)
                         .foregroundStyle(Tokens.Color.text3)
+                        .lineLimit(2)
                 }
-                Spacer()
             }
-            if notifications.authorizationStatus == .denied {
-                Button {
-                    openAppSettings()
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "arrow.up.right.square")
-                            .font(.system(size: 11, weight: .semibold))
-                        Text("Open System Settings")
-                            .font(Tokens.Font.chip)
-                    }
-                    .padding(.horizontal, Tokens.Space.md)
-                    .padding(.vertical, 7)
-                    .background(Tokens.Color.accent.opacity(0.18))
-                    .foregroundStyle(Tokens.Color.accent2)
-                    .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-            }
+            Spacer()
+            trailing()
         }
         .padding(.horizontal, Tokens.Space.lg)
         .padding(.vertical, Tokens.Space.md)
+        .contentShape(Rectangle())
     }
 
-    private var sendTestRow: some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.sm) {
-            HStack {
-                rowLabel(icon: "paperplane.fill", text: "Send a test")
-                Spacer()
-                Button {
-                    Haptics.tap()
-                    Task {
-                        let ok = await notifications.sendTestInFiveSeconds()
-                        testFeedback = ok ? "Test scheduled · arrives in 5 seconds" : "Couldn't schedule — check permission."
-                    }
-                } label: {
-                    Text("Send")
-                        .font(Tokens.Font.chip)
-                        .padding(.horizontal, Tokens.Space.md)
-                        .padding(.vertical, 7)
-                        .background(Tokens.Color.accent.opacity(0.20))
-                        .foregroundStyle(Tokens.Color.accent2)
-                        .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .disabled(!notifsEnabled)
+    private func externalLinkRow(icon: String, tint: Color, title: String, url: String) -> some View {
+        Button {
+            Haptics.tap()
+            if let u = URL(string: url) { openURL(u) }
+        } label: {
+            rowContent(icon: icon, iconTint: tint, title: title, subtitle: nil,
+                       trailing: {
+                           Image(systemName: "arrow.up.right.square")
+                               .font(.system(size: 12, weight: .semibold))
+                               .foregroundStyle(Tokens.Color.text3)
+                       })
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Footer
+
+    private var footer: some View {
+        Text("Made with care")
+            .font(Tokens.Font.caption)
+            .foregroundStyle(Tokens.Color.text3)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.top, Tokens.Space.lg)
+            .padding(.bottom, 120)
+    }
+
+    // MARK: - Hydration helpers
+
+    private func hydrateFirstDayOfWeekIfNeeded() {
+        if UserDefaults.standard.object(forKey: PrefsKey.firstDayOfWeek) == nil {
+            // Calendar.current.firstWeekday: 1 = Sunday, 2 = Monday
+            firstDayOfWeek = Calendar.current.firstWeekday
+        }
+    }
+
+    private func hydrateTimeFormatIfNeeded() {
+        if UserDefaults.standard.object(forKey: PrefsKey.timeFormat24Hour) == nil {
+            // Inspect the user's locale: a format containing "a" means
+            // it uses AM/PM (12h); absence means 24h.
+            if let format = DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: Locale.current) {
+                timeFormat24 = !format.contains("a")
             }
-            if let testFeedback {
-                Text(testFeedback)
-                    .font(Tokens.Font.caption)
-                    .foregroundStyle(Tokens.Color.text3)
-            }
-        }
-        .padding(.horizontal, Tokens.Space.lg)
-        .padding(.vertical, Tokens.Space.md)
-    }
-
-    private var statusIcon: String {
-        switch notifications.authorizationStatus {
-        case .authorized, .provisional, .ephemeral: return "checkmark.seal.fill"
-        case .denied: return "xmark.seal.fill"
-        case .notDetermined: return "questionmark.circle"
-        @unknown default: return "questionmark.circle"
         }
     }
-
-    private var statusColor: Color {
-        switch notifications.authorizationStatus {
-        case .authorized, .provisional, .ephemeral: return Tokens.Color.mint
-        case .denied: return Tokens.Color.rose
-        case .notDetermined: return Tokens.Color.text3
-        @unknown default: return Tokens.Color.text3
-        }
-    }
-
-    private var statusTitle: String {
-        switch notifications.authorizationStatus {
-        case .authorized, .provisional, .ephemeral: return "Notifications enabled"
-        case .denied: return "Notifications blocked"
-        case .notDetermined: return "Permission not granted yet"
-        @unknown default: return "Unknown status"
-        }
-    }
-
-    private var statusSubtitle: String {
-        switch notifications.authorizationStatus {
-        case .authorized, .provisional, .ephemeral:
-            return "Reminders, daily brief, and shared-list pings."
-        case .denied:
-            return "Enable in System Settings → Cadence."
-        case .notDetermined:
-            return "iOS will ask the first time a reminder is set."
-        @unknown default:
-            return ""
-        }
-    }
-
-    #if canImport(UIKit)
-    private func openAppSettings() {
-        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
-        UIApplication.shared.open(url)
-    }
-    #else
-    private func openAppSettings() {}
-    #endif
-
-    // MARK: App info
 
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
@@ -1064,5 +731,60 @@ struct SettingsView: View {
 
     private var buildNumber: String {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
+    }
+}
+
+// MARK: - Import Subscreen (small drill-in for Reminders + CSV)
+
+struct ImportSubscreen: View {
+    let onApple: () -> Void
+    let onCSV: () -> Void
+
+    var body: some View {
+        SubscreenScaffold(title: "Import data") {
+            SubscreenCard {
+                Button {
+                    Haptics.tap()
+                    onApple()
+                } label: {
+                    importRow(icon: "list.bullet.rectangle.portrait.fill",
+                              tint: Tokens.Color.accent2,
+                              title: "Apple Reminders",
+                              subtitle: "Bring in your existing Reminders lists.")
+                }
+                .buttonStyle(.plain)
+                Divider().background(Tokens.Color.borderSoft)
+                Button {
+                    Haptics.tap()
+                    onCSV()
+                } label: {
+                    importRow(icon: "doc.text.fill",
+                              tint: Tokens.Color.indigo,
+                              title: "CSV file",
+                              subtitle: "Things 3, TickTick, Todoist, or any tool with CSV export.")
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func importRow(icon: String, tint: Color, title: String, subtitle: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(tint)
+                .frame(width: 18)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(Tokens.Font.bodyEmphasis).foregroundStyle(Tokens.Color.text)
+                Text(subtitle).font(Tokens.Font.caption).foregroundStyle(Tokens.Color.text3)
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Tokens.Color.text3)
+        }
+        .padding(.horizontal, Tokens.Space.lg)
+        .padding(.vertical, Tokens.Space.md)
+        .contentShape(Rectangle())
     }
 }

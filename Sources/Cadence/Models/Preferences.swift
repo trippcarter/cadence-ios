@@ -67,6 +67,98 @@ enum PrefsKey {
     /// on first render. Default 3 — keeps Today clean when there's a
     /// lot of backlog without hiding it entirely.
     static let autoCollapseCarriedThreshold = "autoCollapseCarriedThreshold"
+
+    // You-tab restructure (Build 28) — new preferences. UI saves the
+    // values; deeper propagation through date formatters / calendar
+    // start day / NotificationManager quiet-hour suppression ships in
+    // Build 29.
+
+    /// 1 = Sunday, 2 = Monday. Default reads Calendar.current.firstWeekday
+    /// on first launch.
+    static let firstDayOfWeek           = "firstDayOfWeek"
+    /// false = 12-hour (3:30 PM), true = 24-hour (15:30). Default reads
+    /// Locale.current.uses24HourTime on first launch.
+    static let timeFormat24Hour         = "timeFormat24Hour"
+    /// Default sort applied to newly-opened lists. ListSortPreference.rawValue.
+    static let defaultListSort          = "defaultListSort"
+    /// Pre-selected reminder offset in seconds when the user opens "Add
+    /// task" with no list-default override. Encoded as a Double; -1 = none,
+    /// 0 = at due time, negative numbers = N seconds before.
+    static let defaultReminderOffset    = "defaultReminderOffset"
+    /// Destination list for new tasks created via the global "+" button.
+    /// "inbox" = always Inbox; "last-used" = whichever list the user
+    /// last added to; otherwise a TaskList.id.uuidString.
+    static let defaultNewTaskList       = "defaultNewTaskList"
+    /// Whether the Today view shows already-completed tasks below the
+    /// open ones. Default ON.
+    static let showCompletedInToday     = "showCompletedInToday"
+    /// Master toggle for displaying Google Calendar events on Today /
+    /// Calendar / Week / Day views. Connection state lives elsewhere;
+    /// this just hides the events without disconnecting.
+    static let showCalendarEvents       = "showCalendarEvents"
+
+    // Quiet hours (Build 28)
+    /// Whether quiet hours suppress non-time-sensitive reminders.
+    static let quietHoursEnabled        = "quietHoursEnabled"
+    /// Hour-of-day (0-23) when quiet hours start. Default 22 (10 PM).
+    static let quietHoursStartHour      = "quietHoursStartHour"
+    static let quietHoursStartMinute    = "quietHoursStartMinute"
+    /// Hour-of-day (0-23) when quiet hours end. Default 7 (7 AM).
+    static let quietHoursEndHour        = "quietHoursEndHour"
+    static let quietHoursEndMinute      = "quietHoursEndMinute"
+    /// When true, reminders flagged time-sensitive (the iOS interruption
+    /// level) still fire during quiet hours.
+    static let quietHoursAllowTimeSensitive = "quietHoursAllowTimeSensitive"
+
+    // Profile avatar color (Build 28)
+    /// Picked gradient identifier for the user's avatar circle. Per-user
+    /// (keyed via UserScopedPrefs). Falls back to violet→indigo default
+    /// when unset.
+    static let avatarColorKey           = "avatarColorKey"
+}
+
+/// Built-in sort options offered by the per-list sort menu and the
+/// new "Default sort for lists" preference. Build 28.
+enum ListSortPreference: String, CaseIterable, Identifiable {
+    case manual
+    case dueDate
+    case priority
+    case alphabetical
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .manual:       return "Manual"
+        case .dueDate:      return "Due date"
+        case .priority:     return "Priority"
+        case .alphabetical: return "Alphabetical"
+        }
+    }
+}
+
+/// User-pickable reminder offsets for the new "Default reminder offset"
+/// preference. Encoded as seconds; -1 sentinel = no default. Build 28.
+enum ReminderOffsetPreset: TimeInterval, CaseIterable, Identifiable {
+    case none      = -1
+    case atDue     = 0
+    case fiveMin   = -300
+    case thirtyMin = -1800
+    case oneHour   = -3600
+    case oneDay    = -86400
+
+    var id: TimeInterval { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .none:      return "None"
+        case .atDue:     return "At due time"
+        case .fiveMin:   return "5 min before"
+        case .thirtyMin: return "30 min before"
+        case .oneHour:   return "1 hr before"
+        case .oneDay:    return "1 day before"
+        }
+    }
 }
 
 /// Per-Apple-Sign-In-identifier preferences. Different users on the same
@@ -109,6 +201,71 @@ enum UserScopedPrefs {
         } else {
             UserDefaults.standard.removeObject(forKey: "userDisplayName_\(identifier)")
         }
+    }
+
+    // MARK: User avatar color (Build 28)
+
+    /// The avatar gradient the user picked in the new EditProfileSheet.
+    /// One of AvatarGradient.allCases.rawValue. Falls back to .violet
+    /// when nil.
+    static func avatarColorKey(for identifier: String) -> String? {
+        let raw = UserDefaults.standard.string(forKey: "avatarColorKey_\(identifier)")
+        guard let raw, !raw.isEmpty else { return nil }
+        return raw
+    }
+
+    static func setAvatarColorKey(_ value: String?, for identifier: String) {
+        if let value, !value.isEmpty {
+            UserDefaults.standard.set(value, forKey: "avatarColorKey_\(identifier)")
+        } else {
+            UserDefaults.standard.removeObject(forKey: "avatarColorKey_\(identifier)")
+        }
+    }
+}
+
+/// Build 28: pickable avatar gradient palette in EditProfileSheet.
+/// Each case maps to a (start, end) color pair used by LinearGradient.
+enum AvatarGradient: String, CaseIterable, Identifiable {
+    case violet
+    case indigo
+    case ocean
+    case mint
+    case forest
+    case amber
+    case rose
+    case mono
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .violet: return "Violet"
+        case .indigo: return "Indigo"
+        case .ocean:  return "Ocean"
+        case .mint:   return "Mint"
+        case .forest: return "Forest"
+        case .amber:  return "Amber"
+        case .rose:   return "Rose"
+        case .mono:   return "Mono"
+        }
+    }
+
+    var colors: [Color] {
+        switch self {
+        case .violet: return [Color(hex: 0x7C5CFF), Color(hex: 0x5B3CFA)]
+        case .indigo: return [Color(hex: 0x6366F1), Color(hex: 0x4338CA)]
+        case .ocean:  return [Color(hex: 0x06B6D4), Color(hex: 0x0E7490)]
+        case .mint:   return [Color(hex: 0x34D399), Color(hex: 0x059669)]
+        case .forest: return [Color(hex: 0x16A34A), Color(hex: 0x065F46)]
+        case .amber:  return [Color(hex: 0xF59E0B), Color(hex: 0xB45309)]
+        case .rose:   return [Color(hex: 0xFB7185), Color(hex: 0xBE123C)]
+        case .mono:   return [Color(hex: 0x4B5563), Color(hex: 0x111827)]
+        }
+    }
+
+    static func resolve(_ rawValue: String?) -> AvatarGradient {
+        guard let rawValue, let g = AvatarGradient(rawValue: rawValue) else { return .violet }
+        return g
     }
 }
 
