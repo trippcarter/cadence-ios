@@ -1,4 +1,8 @@
 import SwiftUI
+import SwiftData
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Settings → Account row. Shows the signed-in user's name + email and
 /// offers a destructive Sign Out action with confirmation alert.
@@ -15,9 +19,14 @@ import SwiftUI
 struct AccountSection: View {
     @EnvironmentObject private var authSession: AuthSession
     @EnvironmentObject private var cloudSync: CloudKitSyncManager
+    @Environment(\.modelContext) private var modelContext
     @State private var showingSignOutConfirm = false
     @State private var showingSwitchConfirm = false
     @State private var showingDisplayNameEdit = false
+    @State private var exportURL: URL?
+    @State private var exportBusy: Bool = false
+    @State private var exportError: String?
+    @State private var showingDeleteConfirm = false
 
     private var user: AuthenticatedUser? {
         authSession.state.user
@@ -31,9 +40,13 @@ struct AccountSection: View {
             Divider().background(Tokens.Color.borderSoft)
             iCloudDiagnosticRow
             Divider().background(Tokens.Color.borderSoft)
+            exportDataRow
+            Divider().background(Tokens.Color.borderSoft)
             signOutRow
             Divider().background(Tokens.Color.borderSoft)
             switchAccountRow
+            Divider().background(Tokens.Color.borderSoft)
+            deleteAccountRow
         }
         .sheet(isPresented: $showingDisplayNameEdit) {
             DisplayNameEditSheet(mode: .edit)
@@ -56,6 +69,156 @@ struct AccountSection: View {
         } message: {
             Text("You'll sign out of this account and Apple will ask you which Apple ID to use next. Your existing tasks stay in iCloud and reappear when you sign back in with this account.")
         }
+        .alert("Delete your account?", isPresented: $showingDeleteConfirm) {
+            Button("Delete", role: .destructive) {
+                Haptics.warning()
+                deleteAccount()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Wipes every list, task, habit, and review on this device and signs you out. Data already synced to your iCloud stays tied to your Apple ID — to remove that too, sign out of Cadence in iOS Settings → Apple ID → iCloud after this.")
+        }
+        .sheet(item: Binding(
+            get: { exportURL.map { IdentifiableURL(url: $0) } },
+            set: { newValue in exportURL = newValue?.url }
+        )) { wrapper in
+            ExportShareSheet(url: wrapper.url)
+        }
+        .alert("Couldn't build export", isPresented: Binding(
+            get: { exportError != nil },
+            set: { if !$0 { exportError = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(exportError ?? "")
+        }
+    }
+
+    // MARK: Export
+
+    private var exportDataRow: some View {
+        Button {
+            Haptics.tap()
+            runExport()
+        } label: {
+            HStack(spacing: 8) {
+                if exportBusy {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                        .frame(width: 18)
+                } else {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Tokens.Color.mint)
+                        .frame(width: 18)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Export my data")
+                        .font(Tokens.Font.bodyEmphasis)
+                        .foregroundStyle(Tokens.Color.text)
+                    Text("Save every task, list, habit, and review as a JSON file.")
+                        .font(Tokens.Font.caption)
+                        .foregroundStyle(Tokens.Color.text3)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.text3)
+            }
+            .padding(.horizontal, Tokens.Space.lg)
+            .padding(.vertical, Tokens.Space.md)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(exportBusy)
+    }
+
+    @MainActor
+    private func runExport() {
+        guard !exportBusy else { return }
+        exportBusy = true
+        Task {
+            defer { exportBusy = false }
+            let export = DataExporter.buildExport(context: modelContext, user: user)
+            do {
+                let url = try DataExporter.writeExport(export)
+                exportURL = url
+            } catch {
+                exportError = error.localizedDescription
+            }
+        }
+    }
+
+    // MARK: Delete account
+
+    private var deleteAccountRow: some View {
+        Button(role: .destructive) {
+            showingDeleteConfirm = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "trash.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.rose)
+                    .frame(width: 18)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Delete my account")
+                        .font(Tokens.Font.bodyEmphasis)
+                        .foregroundStyle(Tokens.Color.rose)
+                    Text("Wipes local data and signs you out.")
+                        .font(Tokens.Font.caption)
+                        .foregroundStyle(Tokens.Color.text3)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, Tokens.Space.lg)
+            .padding(.vertical, Tokens.Space.md)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(user == nil)
+    }
+
+    @MainActor
+    private func deleteAccount() {
+        // Wipe every user-authored row. Cascades handle subtasks, focus
+        // sessions, habit completions, etc.
+        let entityTypes: [(name: String, deleter: () -> Void)] = [
+            ("TaskItem", {
+                let rows = (try? modelContext.fetch(FetchDescriptor<TaskItem>())) ?? []
+                rows.forEach { modelContext.delete($0) }
+            }),
+            ("TaskList", {
+                let rows = (try? modelContext.fetch(FetchDescriptor<TaskList>())) ?? []
+                rows.forEach { modelContext.delete($0) }
+            }),
+            ("Household", {
+                let rows = (try? modelContext.fetch(FetchDescriptor<Household>())) ?? []
+                rows.forEach { modelContext.delete($0) }
+            }),
+            ("FocusSession", {
+                let rows = (try? modelContext.fetch(FetchDescriptor<FocusSession>())) ?? []
+                rows.forEach { modelContext.delete($0) }
+            }),
+            ("HabitCompletion", {
+                let rows = (try? modelContext.fetch(FetchDescriptor<HabitCompletion>())) ?? []
+                rows.forEach { modelContext.delete($0) }
+            }),
+            ("ReviewLog", {
+                let rows = (try? modelContext.fetch(FetchDescriptor<ReviewLog>())) ?? []
+                rows.forEach { modelContext.delete($0) }
+            }),
+            ("TomorrowIntention", {
+                let rows = (try? modelContext.fetch(FetchDescriptor<TomorrowIntention>())) ?? []
+                rows.forEach { modelContext.delete($0) }
+            }),
+            ("DailyWin", {
+                let rows = (try? modelContext.fetch(FetchDescriptor<DailyWin>())) ?? []
+                rows.forEach { modelContext.delete($0) }
+            })
+        ]
+        for entity in entityTypes { entity.deleter() }
+        try? modelContext.save()
+        authSession.signOut()
     }
 
     /// Build 11: editable display name lives at the top of the Account
@@ -243,4 +406,17 @@ struct AccountSection: View {
         .buttonStyle(.plain)
         .disabled(user == nil)
     }
+}
+
+private struct IdentifiableURL: Identifiable {
+    let url: URL
+    var id: String { url.path }
+}
+
+private struct ExportShareSheet: UIViewControllerRepresentable {
+    let url: URL
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: [url], applicationActivities: nil)
+    }
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }

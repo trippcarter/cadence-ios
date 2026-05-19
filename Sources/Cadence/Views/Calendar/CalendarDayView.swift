@@ -58,8 +58,16 @@ struct CalendarDayView: View {
             event.isAllDay && cal.isDate(event.start, inSameDayAs: day)
         }
 
+        let isFreeDay = untimedTasks.isEmpty && timedTasks.isEmpty
+            && timedEvents.isEmpty && allDayEvents.isEmpty
+
         ScrollView {
             VStack(alignment: .leading, spacing: Tokens.Space.md) {
+                if isFreeDay {
+                    freeDayBanner
+                        .padding(.horizontal, Tokens.Space.lg)
+                        .padding(.top, Tokens.Space.md)
+                }
                 if !untimedTasks.isEmpty || !allDayEvents.isEmpty {
                     unscheduledStrip(tasks: untimedTasks, events: allDayEvents)
                         .padding(.horizontal, Tokens.Space.lg)
@@ -76,6 +84,37 @@ struct CalendarDayView: View {
             }
         }
         .scrollIndicators(.hidden)
+    }
+
+    private var freeDayBanner: some View {
+        HStack(spacing: Tokens.Space.md) {
+            ZStack {
+                Circle()
+                    .fill(Tokens.Color.teal.opacity(0.18))
+                    .frame(width: 36, height: 36)
+                Image(systemName: "calendar")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.teal)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Free day")
+                    .font(Tokens.Font.bodyEmphasis)
+                    .foregroundStyle(Tokens.Color.text)
+                Text("Add a task or event to fill it.")
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Tokens.Color.text3)
+            }
+            Spacer()
+        }
+        .padding(Tokens.Space.md)
+        .background(Tokens.Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous)
+                .stroke(Tokens.Color.borderSoft, lineWidth: 0.5)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Free day. Add a task or event to fill it.")
     }
 
     private func unscheduledStrip(tasks: [TaskItem], events: [CachedEvent]) -> some View {

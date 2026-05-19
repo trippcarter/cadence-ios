@@ -1,0 +1,18 @@
+title: Cadence
+description: Daily tasks. Real life.
+theme: jekyll-theme-minimal
+url: https://trippcarter.github.io
+baseurl: /cadence-ios
+markdown: kramdown
+include:
+  - privacy.md
+  - terms.md
+exclude:
+  - "*.docx"
+  - "*.pdf"
+  - screenshots/
+  - store-assets/
+  - CRASH_FIXES.md
+  - TESTFLIGHT.md
+  - Build_21_Watch_Paused.md
+  - Cadence_Mockups.html

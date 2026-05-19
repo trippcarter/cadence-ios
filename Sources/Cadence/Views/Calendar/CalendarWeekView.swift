@@ -61,6 +61,11 @@ struct CalendarWeekView: View {
             Divider().background(Tokens.Color.borderSoft)
 
             ScrollView {
+                if tasksForSelectedDay.isEmpty && eventsForSelectedDay.isEmpty {
+                    freeDayBanner
+                        .padding(.horizontal, Tokens.Space.lg)
+                        .padding(.top, Tokens.Space.md)
+                }
                 WeekTimeline(
                     tasks: tasksForSelectedDay,
                     events: eventsForSelectedDay,
@@ -78,6 +83,37 @@ struct CalendarWeekView: View {
                 selectedDay = days.first { Calendar.current.isDateInToday($0) } ?? days[0]
             }
         }
+    }
+
+    private var freeDayBanner: some View {
+        HStack(spacing: Tokens.Space.md) {
+            ZStack {
+                Circle()
+                    .fill(Tokens.Color.teal.opacity(0.18))
+                    .frame(width: 36, height: 36)
+                Image(systemName: "calendar")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.teal)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Free day")
+                    .font(Tokens.Font.bodyEmphasis)
+                    .foregroundStyle(Tokens.Color.text)
+                Text("Add a task or event to fill it.")
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Tokens.Color.text3)
+            }
+            Spacer()
+        }
+        .padding(Tokens.Space.md)
+        .background(Tokens.Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous)
+                .stroke(Tokens.Color.borderSoft, lineWidth: 0.5)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Free day. Add a task or event to fill it.")
     }
 
     // MARK: Derived

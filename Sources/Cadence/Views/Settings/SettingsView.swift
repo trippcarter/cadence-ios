@@ -26,6 +26,9 @@ struct SettingsView: View {
     @State private var showingDailyReviewManual: Bool = false
     @State private var showingRemindersImport: Bool = false
     @State private var showingCSVImport: Bool = false
+    @State private var showingHelpFAQ: Bool = false
+    @State private var showingCrashLogs: Bool = false
+    @State private var crashLogCount: Int = 0
 
     @EnvironmentObject private var notifications: NotificationManager
     @EnvironmentObject private var authSession: AuthSession
@@ -306,6 +309,10 @@ struct SettingsView: View {
                     AppIconPicker()
                 }
 
+                section(title: "Help & FAQ") {
+                    helpFAQRow
+                }
+
                 section(title: "Danger zone") {
                     ResetDataSection()
                 }
@@ -313,7 +320,15 @@ struct SettingsView: View {
                 section(title: "About") {
                     aboutVersionRow
                     Divider().background(Tokens.Color.borderSoft)
+                    aboutPrivacyRow
+                    Divider().background(Tokens.Color.borderSoft)
+                    aboutTermsRow
+                    Divider().background(Tokens.Color.borderSoft)
                     aboutGitHubRow
+                    if crashLogCount > 0 {
+                        Divider().background(Tokens.Color.borderSoft)
+                        aboutCrashLogsRow
+                    }
                 }
 
                 Section {
@@ -355,6 +370,74 @@ struct SettingsView: View {
         .sheet(isPresented: $showingCSVImport) {
             CSVImportSheet()
         }
+        .sheet(isPresented: $showingHelpFAQ) {
+            HelpFAQSheet()
+        }
+        .sheet(isPresented: $showingCrashLogs) {
+            CrashLogsView()
+        }
+        .onAppear {
+            crashLogCount = MetricKitObserver.listLogs().count
+        }
+    }
+
+    private var aboutCrashLogsRow: some View {
+        Button {
+            Haptics.tap()
+            showingCrashLogs = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.octagon")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.rose)
+                    .frame(width: 18)
+                Text("Crash & diagnostic logs")
+                    .font(Tokens.Font.bodyEmphasis)
+                    .foregroundStyle(Tokens.Color.text)
+                Spacer()
+                Text("\(crashLogCount)")
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Tokens.Color.text3)
+                    .monospacedDigit()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.text3)
+            }
+            .padding(.horizontal, Tokens.Space.lg)
+            .padding(.vertical, Tokens.Space.md)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var helpFAQRow: some View {
+        Button {
+            Haptics.tap()
+            showingHelpFAQ = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "questionmark.circle.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.accent2)
+                    .frame(width: 18)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Questions, how-tos, troubleshooting")
+                        .font(Tokens.Font.bodyEmphasis)
+                        .foregroundStyle(Tokens.Color.text)
+                    Text("12 answers and a direct line to support.")
+                        .font(Tokens.Font.caption)
+                        .foregroundStyle(Tokens.Color.text3)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.text3)
+            }
+            .padding(.horizontal, Tokens.Space.lg)
+            .padding(.vertical, Tokens.Space.md)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     /// Build 22: reusable row for the Import from… section. Same visual
@@ -664,6 +747,49 @@ struct SettingsView: View {
         }
         .padding(.horizontal, Tokens.Space.lg)
         .padding(.vertical, Tokens.Space.md)
+    }
+
+    private var aboutPrivacyRow: some View {
+        externalLinkRow(
+            icon: "hand.raised.fill",
+            tint: Tokens.Color.accent,
+            title: "Privacy Policy",
+            url: "https://trippcarter.github.io/cadence-ios/privacy"
+        )
+    }
+
+    private var aboutTermsRow: some View {
+        externalLinkRow(
+            icon: "doc.text.fill",
+            tint: Tokens.Color.teal,
+            title: "Terms of Service",
+            url: "https://trippcarter.github.io/cadence-ios/terms"
+        )
+    }
+
+    private func externalLinkRow(icon: String, tint: Color, title: String, url: String) -> some View {
+        Button {
+            Haptics.tap()
+            if let u = URL(string: url) { openURL(u) }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(tint)
+                    .frame(width: 18)
+                Text(title)
+                    .font(Tokens.Font.bodyEmphasis)
+                    .foregroundStyle(Tokens.Color.text)
+                Spacer()
+                Image(systemName: "arrow.up.right.square")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.text3)
+            }
+            .padding(.horizontal, Tokens.Space.lg)
+            .padding(.vertical, Tokens.Space.md)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var aboutGitHubRow: some View {

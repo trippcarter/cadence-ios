@@ -53,6 +53,7 @@ struct CadenceApp: App {
         SeedData.bootstrapIfNeeded(container.mainContext)
         GoogleCalendarService.shared.bindContext(container.mainContext)
         SharedListMirror.shared.bind(context: container.mainContext)
+        MetricKitObserver.shared.start()
     }
 
     var body: some Scene {

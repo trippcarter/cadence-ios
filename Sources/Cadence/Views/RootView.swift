@@ -115,6 +115,13 @@ struct RootView: View {
     private var appContent: some View {
         ZStack(alignment: .bottom) {
             content
+            VStack {
+                RecoveryBanners(onReconnectGoogle: { selectedTab = .you })
+                    .padding(.horizontal, Tokens.Space.lg)
+                    .padding(.top, Tokens.Space.sm)
+                Spacer()
+            }
+            .allowsHitTesting(true)
             BottomTabBar(selected: $selectedTab) {
                 showingAddTask = true
             }
