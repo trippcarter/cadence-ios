@@ -35,6 +35,10 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Cadence imports your existing Apple Reminders lists so you don't have to retype them.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>Cadence imports your existing Apple Reminders lists so you don't have to retype them.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

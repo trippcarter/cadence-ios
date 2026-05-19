@@ -21,6 +21,8 @@ struct SettingsView: View {
 
     @State private var testFeedback: String?
     @State private var showingDailyReviewManual: Bool = false
+    @State private var showingRemindersImport: Bool = false
+    @State private var showingCSVImport: Bool = false
 
     @EnvironmentObject private var notifications: NotificationManager
     @EnvironmentObject private var authSession: AuthSession
@@ -59,6 +61,22 @@ struct SettingsView: View {
 
                 section(title: "Connected accounts") {
                     ConnectedAccountsSection()
+                }
+
+                section(title: "Import from…") {
+                    importRow(title: "Apple Reminders",
+                              subtitle: "Bring in your existing Reminders lists.",
+                              icon: "list.bullet.rectangle.portrait.fill",
+                              tint: Tokens.Color.accent2) {
+                        showingRemindersImport = true
+                    }
+                    Divider().background(Tokens.Color.borderSoft)
+                    importRow(title: "CSV file",
+                              subtitle: "Things 3, TickTick, Todoist, or any tool with CSV export.",
+                              icon: "doc.text.fill",
+                              tint: Tokens.Color.indigo) {
+                        showingCSVImport = true
+                    }
                 }
 
                 section(title: "Notifications") {
@@ -280,6 +298,44 @@ struct SettingsView: View {
         .sheet(isPresented: $showingDailyReviewManual) {
             DailyReviewSheet()
         }
+        .sheet(isPresented: $showingRemindersImport) {
+            RemindersImportSheet()
+        }
+        .sheet(isPresented: $showingCSVImport) {
+            CSVImportSheet()
+        }
+    }
+
+    /// Build 22: reusable row for the Import from… section. Same visual
+    /// language as the Account / Switch Apple ID rows in AccountSection.
+    private func importRow(title: String, subtitle: String, icon: String, tint: Color, action: @escaping () -> Void) -> some View {
+        Button(action: {
+            Haptics.tap()
+            action()
+        }) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(tint)
+                    .frame(width: 18)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(Tokens.Font.bodyEmphasis)
+                        .foregroundStyle(Tokens.Color.text)
+                    Text(subtitle)
+                        .font(Tokens.Font.caption)
+                        .foregroundStyle(Tokens.Color.text3)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.text3)
+            }
+            .padding(.horizontal, Tokens.Space.lg)
+            .padding(.vertical, Tokens.Space.md)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: Voice & Siri rows (Build 20)
