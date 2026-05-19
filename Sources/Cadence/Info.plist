@@ -16,7 +16,7 @@
 			<dict>
 				<key>CFBundleIconFiles</key>
 				<array>
-					<string>AppIcon-Family-1024</string>
+					<string>Family</string>
 				</array>
 				<key>UIPrerenderedIcon</key>
 				<false/>
@@ -25,7 +25,7 @@
 			<dict>
 				<key>CFBundleIconFiles</key>
 				<array>
-					<string>AppIcon-Forest-1024</string>
+					<string>Forest</string>
 				</array>
 				<key>UIPrerenderedIcon</key>
 				<false/>
@@ -34,7 +34,7 @@
 			<dict>
 				<key>CFBundleIconFiles</key>
 				<array>
-					<string>AppIcon-Mint-1024</string>
+					<string>Mint</string>
 				</array>
 				<key>UIPrerenderedIcon</key>
 				<false/>
@@ -43,7 +43,7 @@
 			<dict>
 				<key>CFBundleIconFiles</key>
 				<array>
-					<string>AppIcon-Mono-1024</string>
+					<string>Mono</string>
 				</array>
 				<key>UIPrerenderedIcon</key>
 				<false/>
@@ -52,7 +52,7 @@
 			<dict>
 				<key>CFBundleIconFiles</key>
 				<array>
-					<string>AppIcon-Ocean-1024</string>
+					<string>Ocean</string>
 				</array>
 				<key>UIPrerenderedIcon</key>
 				<false/>
@@ -61,7 +61,7 @@
 			<dict>
 				<key>CFBundleIconFiles</key>
 				<array>
-					<string>AppIcon-Outdoors-1024</string>
+					<string>Outdoors</string>
 				</array>
 				<key>UIPrerenderedIcon</key>
 				<false/>
@@ -70,7 +70,7 @@
 			<dict>
 				<key>CFBundleIconFiles</key>
 				<array>
-					<string>AppIcon-Warm-1024</string>
+					<string>Warm</string>
 				</array>
 				<key>UIPrerenderedIcon</key>
 				<false/>

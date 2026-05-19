@@ -19,7 +19,7 @@ settings:
     SWIFT_STRICT_CONCURRENCY: minimal
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     MARKETING_VERSION: "1.0.0"
-    CURRENT_PROJECT_VERSION: "26"
+    CURRENT_PROJECT_VERSION: "27"
     GENERATE_INFOPLIST_FILE: YES
     INFOPLIST_KEY_CFBundleDisplayName: Cadence
     SWIFT_TREAT_WARNINGS_AS_ERRORS: NO
@@ -112,31 +112,31 @@ targets:
           CFBundleAlternateIcons:
             Mint:
               CFBundleIconFiles:
-                - AppIcon-Mint-1024
+                - Mint
               UIPrerenderedIcon: false
             Warm:
               CFBundleIconFiles:
-                - AppIcon-Warm-1024
+                - Warm
               UIPrerenderedIcon: false
             Ocean:
               CFBundleIconFiles:
-                - AppIcon-Ocean-1024
+                - Ocean
               UIPrerenderedIcon: false
             Forest:
               CFBundleIconFiles:
-                - AppIcon-Forest-1024
+                - Forest
               UIPrerenderedIcon: false
             Mono:
               CFBundleIconFiles:
-                - AppIcon-Mono-1024
+                - Mono
               UIPrerenderedIcon: false
             Outdoors:
               CFBundleIconFiles:
-                - AppIcon-Outdoors-1024
+                - Outdoors
               UIPrerenderedIcon: false
             Family:
               CFBundleIconFiles:
-                - AppIcon-Family-1024
+                - Family
               UIPrerenderedIcon: false
         CFBundleURLTypes:
           - CFBundleTypeRole: Editor

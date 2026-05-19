@@ -12,7 +12,7 @@ These terms describe the deal when you use Cadence. They're written in plain lan
 
 ## 1. Who we are
 
-Cadence is a task and calendar app developed and distributed by Tripp Carter (an individual, not a company), based in the United States. Throughout these terms, "we," "us," and "Cadence" refer to that person and the app.
+Cadence is a task and calendar app made by the Cadence team, based in the United States. Throughout these terms, "we," "us," and "Cadence" refer to the team and the app.
 
 ## 2. Your account
 
@@ -44,7 +44,7 @@ If you do any of these, we may terminate your access without notice.
 
 ## 5. The app is provided "as is"
 
-Cadence is a solo project. We work hard to make it reliable, but:
+Cadence is a small, focused project. We work hard to make it reliable, but:
 
 - We don't promise the app will be available 100% of the time.
 - We don't promise it's free of bugs.
@@ -57,13 +57,13 @@ To the extent the law allows, the app is provided as-is, without warranties of a
 
 If you lose data, miss a deadline, or have any other bad outcome while using Cadence, our liability is limited to the amount you paid for the app (which, currently, is zero). We're not liable for indirect damages — lost profits, lost opportunities, emotional distress, etc.
 
-This isn't us being callous — it's the standard limit for a small indie app and reflects the reality of what one person can warrant.
+This isn't us being callous — it's the standard limit for an indie app and reflects what a small team can realistically warrant.
 
 ## 7. Intellectual property
 
-The Cadence app, name, design, and code are owned by Tripp Carter. You get a limited, personal, non-transferable license to use the app as the App Store delivers it to you. You don't get any rights beyond that.
+The Cadence app, name, design, and code are owned by the Cadence team. You get a limited, personal, non-transferable license to use the app as the App Store delivers it to you. You don't get any rights beyond that.
 
-Open-source components used in Cadence are governed by their own licenses; see the source repository for details.
+Open-source components used in Cadence are governed by their own licenses; see their respective repositories for details.
 
 ## 8. Third-party services
 
@@ -85,13 +85,12 @@ If we make material changes, we'll show a notice in the app and update the "Last
 
 ## 12. Governing law
 
-These terms are governed by the laws of the State of Texas, United States, without regard to its conflict-of-law rules. Any disputes will be handled in the state or federal courts located in Travis County, Texas.
+These terms are governed by the laws of the State of Texas, United States, without regard to its conflict-of-law rules. Any disputes will be handled in the state or federal courts located within Texas.
 
 ## 13. Contact
 
 Questions, complaints, support, or just want to say hi?
 
-- **Email:** [tripp@mcinnis.net](mailto:tripp@mcinnis.net)
-- **GitHub:** [github.com/trippcarter/cadence-ios](https://github.com/trippcarter/cadence-ios)
+- **Email:** [support@cadence.app](mailto:support@cadence.app)
 
 Real human, real reply.

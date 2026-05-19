@@ -96,14 +96,13 @@ PRIVACY
 • Your data lives in YOUR iCloud, not ours
 • Sign in with Apple — no separate account
 • No analytics. No tracking. No ads. No third-party SDKs collecting anything
-• Open source — read the code at github.com/trippcarter/cadence-ios
 • Full export to JSON, anytime
 • Delete your account in two taps
 
 ═══════════════════════
 WHO MADE THIS
 ═══════════════════════
-Cadence is a solo project, made by one person for people who want a calm, beautiful place to plan their day. If you have feedback, the email in Settings → Help → Contact reaches a real human.
+Cadence is made by a small team for people who want a calm, beautiful place to plan their day. If you have feedback, the email in Settings → Help → Contact reaches a real human.
 
 Welcome aboard.
 ```

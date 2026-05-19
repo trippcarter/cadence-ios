@@ -795,16 +795,16 @@ struct SettingsView: View {
     private var aboutGitHubRow: some View {
         Button {
             Haptics.tap()
-            if let url = URL(string: "https://github.com/trippcarter/cadence-ios") {
+            if let url = URL(string: "https://cadence.app") {
                 openURL(url)
             }
         } label: {
             HStack(spacing: 8) {
-                Image(systemName: "chevron.left.forwardslash.chevron.right")
+                Image(systemName: "globe")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Tokens.Color.accent2)
                     .frame(width: 18)
-                Text("Source on GitHub")
+                Text("Visit cadence.app")
                     .font(Tokens.Font.bodyEmphasis)
                     .foregroundStyle(Tokens.Color.accent2)
                 Spacer()

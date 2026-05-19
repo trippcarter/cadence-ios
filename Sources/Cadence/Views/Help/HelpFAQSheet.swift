@@ -6,7 +6,7 @@ import MessageUI
 /// Build 26: searchable FAQ with expandable answers, reachable from
 /// Settings → "Help & FAQ". Each entry tap-toggles open. Bottom of the
 /// sheet has a "Contact support" button that opens MFMailComposeViewController
-/// pre-filled to tripp@mcinnis.net. If the device has no mail account
+/// pre-filled to support@cadence.app. If the device has no mail account
 /// configured, it falls back to a mailto: URL.
 struct HelpFAQSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -55,7 +55,7 @@ struct HelpFAQSheet: View {
             #if canImport(MessageUI)
             .sheet(isPresented: $showingMail) {
                 MailComposeView(
-                    recipient: "tripp@mcinnis.net",
+                    recipient: "support@cadence.app",
                     subject: defaultSupportSubject,
                     body: defaultSupportBody
                 )
@@ -65,12 +65,12 @@ struct HelpFAQSheet: View {
             .alert("Mail not set up", isPresented: $mailFallbackAlert) {
                 Button("Copy email address") {
                     #if canImport(UIKit)
-                    UIPasteboard.general.string = "tripp@mcinnis.net"
+                    UIPasteboard.general.string = "support@cadence.app"
                     #endif
                 }
                 Button("OK", role: .cancel) {}
             } message: {
-                Text("Add a mail account in iOS Settings, or email tripp@mcinnis.net directly from another app.")
+                Text("Add a mail account in iOS Settings, or email support@cadence.app directly from another app.")
             }
         }
     }
@@ -173,7 +173,7 @@ struct HelpFAQSheet: View {
                     Text("Contact support")
                         .font(Tokens.Font.bodyEmphasis)
                         .foregroundStyle(Tokens.Color.text)
-                    Text("Email tripp@mcinnis.net — real human, real reply.")
+                    Text("Email support@cadence.app — real human, real reply.")
                         .font(Tokens.Font.caption)
                         .foregroundStyle(Tokens.Color.text3)
                 }
@@ -231,7 +231,7 @@ struct HelpFAQSheet: View {
     private var mailtoFallbackURL: String {
         let subj = defaultSupportSubject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         let body = defaultSupportBody.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        return "mailto:tripp@mcinnis.net?subject=\(subj)&body=\(body)"
+        return "mailto:support@cadence.app?subject=\(subj)&body=\(body)"
     }
 
     private func deviceModel() -> String {

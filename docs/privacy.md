@@ -8,7 +8,7 @@ permalink: /privacy
 
 **Last updated:** May 19, 2026
 
-Cadence is a personal task and calendar app made by a solo developer (Tripp Carter). This policy explains what data Cadence collects, where it lives, and what you can do about it. We've kept the language plain because that's how privacy policies should read.
+Cadence is a personal task and calendar app. This policy explains what data Cadence collects, where it lives, and what you can do about it. We've kept the language plain because that's how privacy policies should read.
 
 ## The short version
 
@@ -79,7 +79,6 @@ If we make material changes, we'll surface a notice in the app and update the "L
 
 Questions about this policy or your data?
 
-- **Email:** [tripp@mcinnis.net](mailto:tripp@mcinnis.net)
-- **GitHub:** [github.com/trippcarter/cadence-ios](https://github.com/trippcarter/cadence-ios)
+- **Email:** [support@cadence.app](mailto:support@cadence.app)
 
-This is a one-person project, so responses come from a real human.
+A real human reads every message.
