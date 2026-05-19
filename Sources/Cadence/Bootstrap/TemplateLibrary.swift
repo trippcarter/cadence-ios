@@ -21,7 +21,7 @@ enum TemplateLibrary {
         case personal = "Personal"
         case family = "Family"
         case business = "Business"
-        case outdoor = "Outdoor & Hobby"
+        case crew = "Crew"
         case projects = "Projects"
 
         var id: String { rawValue }
@@ -31,7 +31,7 @@ enum TemplateLibrary {
             case .personal: return "person.fill"
             case .family:   return "house.fill"
             case .business: return "briefcase.fill"
-            case .outdoor:  return "leaf.fill"
+            case .crew:     return "flame.fill"
             case .projects: return "hammer.fill"
             }
         }
@@ -41,7 +41,7 @@ enum TemplateLibrary {
             case .personal: return "violet"
             case .family:   return "pink"
             case .business: return "amber"
-            case .outdoor:  return "teal"
+            case .crew:     return "amber"
             case .projects: return "indigo"
             }
         }
@@ -52,7 +52,7 @@ enum TemplateLibrary {
         case .personal:    return personalTemplates
         case .family:      return familyTemplates
         case .business:    return businessTemplates
-        case .outdoor:     return outdoorTemplates
+        case .crew:        return crewTemplates
         case .projects:    return projectsTemplates
         }
     }
@@ -104,7 +104,7 @@ enum TemplateLibrary {
 
     // MARK: Outdoor & Hobby
 
-    private static let outdoorTemplates: [Template] = [
+    private static let crewTemplates: [Template] = [
         Template(id: "outdoor-hunting", name: "Hunting trip prep", colorKey: "amber", iconKey: "scope",
                  starterTasks: ["License + tags", "Sight-in rifle / bow", "Pack: clothes, optics, knives", "Food + water for blind", "Route + check-in plan"]),
         Template(id: "outdoor-boat", name: "Boat day prep", colorKey: "teal", iconKey: "sailboat.fill",

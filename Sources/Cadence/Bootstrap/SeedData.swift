@@ -34,7 +34,7 @@ enum SeedData {
     private static func makeDefaultLists() -> [TaskList] {
         // Build 15 cleanup: "Shared" was a private-by-default placeholder
         // for sharing that always felt weird. Sharing now happens via
-        // Households (Lists tab → "+ Create household"). Defaults stay
+        // Spaces (Lists tab → "+ Create space"). Defaults stay
         // universal — Inbox / Personal / Saved for later.
         [
             TaskList(

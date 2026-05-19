@@ -1,7 +1,7 @@
 import SwiftUI
 import SwiftData
 
-/// "Create household" form. Captures name + color + icon, then on save
+/// "Create space" form. Captures name + color + icon, then on save
 /// inserts a Household, a creator-as-owner HouseholdMembership using the
 /// current AuthSession user, AND a default starter list inside the
 /// household so the user has somewhere to add their first task.
@@ -19,21 +19,27 @@ struct CreateHouseholdSheet: View {
     @State private var iconKey: String = "house.fill"
 
     private static let iconChoices: [String] = [
+        // Build 25: broader set — Spaces aren't just households. Outdoor /
+        // crew / project contexts get first-class glyphs.
         "house.fill",
         "person.2.fill",
         "person.3.fill",
         "figure.2.and.child.holdinghands",
         "briefcase.fill",
         "building.2.fill",
+        "sparkles",
+        "flame.fill",
+        "leaf.fill",
+        "anchor",
         "sailboat.fill",
         "tent.fill",
-        "leaf.fill",
-        "sparkles",
+        "pawprint.fill",
         "heart.fill",
         "graduationcap.fill",
         "hammer.fill",
         "fork.knife",
         "airplane",
+        "car.fill",
         "lightbulb.fill",
         "soccerball",
         "guitars.fill",
@@ -55,7 +61,7 @@ struct CreateHouseholdSheet: View {
                     .padding(.top, Tokens.Space.lg)
                 }
             }
-            .navigationTitle("New household")
+            .navigationTitle("New space")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -91,7 +97,7 @@ struct CreateHouseholdSheet: View {
                     .foregroundStyle(.white)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(name.isEmpty ? "Your new household" : name)
+                Text(name.isEmpty ? "Your new space" : name)
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
                     .foregroundStyle(Tokens.Color.text)
                 Text("Shared with members you invite.")

@@ -19,6 +19,9 @@ struct RootView: View {
     /// Build 18: shown when the user taps the daily-review notification OR
     /// manually triggers via You tab → "Run today's review".
     @State private var showingDailyReview: Bool = false
+    /// Build 25: searchable across Tasks/Lists/Spaces. Opens via the
+    /// magnifying-glass icon in the Today header AND ⌘F shortcut.
+    @State private var showingSearch: Bool = false
 
     @EnvironmentObject private var notifications: NotificationManager
     @EnvironmentObject private var authSession: AuthSession
@@ -99,6 +102,9 @@ struct RootView: View {
         .sheet(isPresented: $showingDailyReview) {
             DailyReviewSheet()
         }
+        .sheet(isPresented: $showingSearch) {
+            SearchSheet()
+        }
         .onChange(of: notifications.deepLinkOpenReview) { _, newValue in
             guard newValue else { return }
             showingDailyReview = true
@@ -152,7 +158,8 @@ struct RootView: View {
         case .today:
             TodayView(
                 onRequestSettingsTab: { selectedTab = .you },
-                onRequestQuickAdd: { showingAddTask = true }
+                onRequestQuickAdd: { showingAddTask = true },
+                onRequestSearch: { showingSearch = true }
             )
         case .week:
             CalendarView()
@@ -174,6 +181,8 @@ struct RootView: View {
         Group {
             Button("New task") { showingAddTask = true }
                 .keyboardShortcut("n", modifiers: .command)
+            Button("Search")   { showingSearch = true }
+                .keyboardShortcut("f", modifiers: .command)
             Button("Today")    { selectedTab = .today }
                 .keyboardShortcut("1", modifiers: .command)
             Button("Calendar") { selectedTab = .week }

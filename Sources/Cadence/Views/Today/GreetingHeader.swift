@@ -14,6 +14,9 @@ struct GreetingHeader: View {
     let completedCount: Int
     let totalCount: Int
     var onTapAvatar: () -> Void = {}
+    /// Build 25: opens the cross-entity SearchSheet. Wired via the small
+    /// search icon on the trailing side of the header.
+    var onTapSearch: () -> Void = {}
 
     @EnvironmentObject private var authSession: AuthSession
     @State private var hasAppeared = false
@@ -46,6 +49,21 @@ struct GreetingHeader: View {
                     .foregroundStyle(Tokens.Color.text3)
             }
             Spacer(minLength: 0)
+            Button {
+                Haptics.tap()
+                onTapSearch()
+            } label: {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.text2)
+                    .frame(width: 36, height: 36)
+                    .background(Tokens.Color.surface)
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(Tokens.Color.borderSoft, lineWidth: 0.5))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Search")
+
             DailyProgressRing(completedCount: completedCount, totalCount: totalCount)
                 .onTapGesture { onTapAvatar() }
                 .accessibilityAddTraits(.isButton)

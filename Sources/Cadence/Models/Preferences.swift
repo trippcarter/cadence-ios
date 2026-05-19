@@ -56,6 +56,17 @@ enum PrefsKey {
     static let themeKey                 = "themeKey"
     /// Currently-selected alternate app icon name. nil = default.
     static let alternateIconName        = "alternateIconName"
+
+    // Today reorg (Build 25)
+    /// Toggle for whether Today shows the "Coming up" section (tasks
+    /// due in the next N days). Default ON.
+    static let showComingUpSection      = "showComingUpSection"
+    /// How far ahead the "Coming up" section looks. Default 7 days.
+    static let comingUpWindowDays       = "comingUpWindowDays"
+    /// Threshold above which the "Carried over" section auto-collapses
+    /// on first render. Default 3 — keeps Today clean when there's a
+    /// lot of backlog without hiding it entirely.
+    static let autoCollapseCarriedThreshold = "autoCollapseCarriedThreshold"
 }
 
 /// Per-Apple-Sign-In-identifier preferences. Different users on the same

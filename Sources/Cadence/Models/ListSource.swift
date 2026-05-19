@@ -45,7 +45,7 @@ enum SmartListKind: String, CaseIterable, Hashable, Identifiable {
 
     var subtitle: String {
         switch self {
-        case .assignedToMe: return "Across every household you're in"
+        case .assignedToMe: return "Across every space you're in"
         case .noDueDate:    return "Tasks waiting for a date"
         case .overdue:      return "Past due, still open"
         }

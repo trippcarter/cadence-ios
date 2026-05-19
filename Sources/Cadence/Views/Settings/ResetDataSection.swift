@@ -67,7 +67,7 @@ struct ResetDataSection: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Tasks, lists, households, recent activity, and cached calendar events will be removed from this device and iCloud. The default lists (Inbox, Personal, Saved for later) come back fresh.")
+            Text("Tasks, lists, spaces, recent activity, and cached calendar events will be removed from this device and iCloud. The default lists (Inbox, Personal, Saved for later) come back fresh.")
         }
     }
 

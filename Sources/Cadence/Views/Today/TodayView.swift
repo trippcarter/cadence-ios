@@ -16,6 +16,9 @@ struct TodayView: View {
     /// Build 13: lets the empty-state "Add something" CTA reuse the same
     /// AddTaskSheet that the floating + tab-bar button presents.
     var onRequestQuickAdd: (() -> Void)? = nil
+    /// Build 25: opens the cross-entity search sheet — wired from
+    /// RootView, shared with the ⌘F keyboard shortcut.
+    var onRequestSearch: (() -> Void)? = nil
 
     /// Refreshed on appear so tasks recompute against the current date if the
     /// app stays open past midnight.
@@ -23,6 +26,17 @@ struct TodayView: View {
     @State private var detailTask: TaskItem?
     @State private var detailEvent: CachedEvent?
     @State private var hasAppeared = false
+
+    // Build 25: section collapse state. Defaults match Settings toggles
+    // (autoCollapseCarriedThreshold). Carried-over auto-collapses when
+    // it has more than the threshold; Coming up always defaults closed
+    // (it's a sneak peek, not the focus).
+    @State private var carriedExpanded: Bool = false
+    @State private var comingUpExpanded: Bool = false
+
+    @AppStorage(PrefsKey.showComingUpSection) private var showsComingUpSection: Bool = true
+    @AppStorage(PrefsKey.comingUpWindowDays) private var comingUpWindowDays: Int = 7
+    @AppStorage(PrefsKey.autoCollapseCarriedThreshold) private var autoCollapseCarriedThreshold: Int = 3
 
     var body: some View {
         ZStack {
@@ -59,7 +73,8 @@ struct TodayView: View {
                         date: now,
                         completedCount: completedToday.count,
                         totalCount: completedToday.count + pinnedTasks.count + carriedTasks.count + timedTasks.count + unscheduledTasks.count,
-                        onTapAvatar: { onRequestSettingsTab?() }
+                        onTapAvatar: { onRequestSettingsTab?() },
+                        onTapSearch: { onRequestSearch?() }
                     )
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
@@ -84,22 +99,16 @@ struct TodayView: View {
                     .listRowInsets(EdgeInsets(top: Tokens.Space.lg, leading: Tokens.Space.lg, bottom: Tokens.Space.md, trailing: Tokens.Space.lg))
                 }
 
+                // Build 25 reorg: Pinned → Today → Coming up → Carried over
+                // → Completed. Carried over no longer dominates the top of
+                // the screen even when there are old tasks lingering.
+
                 if !pinnedTasks.isEmpty {
                     taskSection(
                         title: "Pinned",
                         count: pinnedTasks.count,
                         accent: Tokens.Color.amber,
                         tasks: pinnedTasks
-                    )
-                }
-
-                if !carriedTasks.isEmpty {
-                    taskSection(
-                        title: "Carried over",
-                        count: carriedTasks.count,
-                        accent: Tokens.Color.amber,
-                        tasks: carriedTasks,
-                        showsCarriedChip: true
                     )
                 }
 
@@ -111,6 +120,27 @@ struct TodayView: View {
                     anytimeSection(tasks: unscheduledTasks)
                 }
 
+                if showsComingUpSection, !comingUpTasks.isEmpty {
+                    collapsibleSection(
+                        title: "Coming up",
+                        count: comingUpTasks.count,
+                        accent: Tokens.Color.indigo,
+                        tasks: comingUpTasks,
+                        isExpanded: $comingUpExpanded
+                    )
+                }
+
+                if !carriedTasks.isEmpty {
+                    collapsibleSection(
+                        title: "Carried over",
+                        count: carriedTasks.count,
+                        accent: Tokens.Color.amber,
+                        tasks: carriedTasks,
+                        isExpanded: $carriedExpanded,
+                        showsCarriedChip: true
+                    )
+                }
+
                 if !completedToday.isEmpty {
                     taskSection(
                         title: "Completed",
@@ -120,7 +150,7 @@ struct TodayView: View {
                     )
                 }
 
-                if pinnedTasks.isEmpty && carriedTasks.isEmpty && timelineItems.isEmpty && unscheduledTasks.isEmpty && completedToday.isEmpty {
+                if pinnedTasks.isEmpty && carriedTasks.isEmpty && timelineItems.isEmpty && unscheduledTasks.isEmpty && completedToday.isEmpty && comingUpTasks.isEmpty {
                     emptyStateRow
                 }
 
@@ -142,6 +172,12 @@ struct TodayView: View {
         .onAppear {
             now = .now
             if !hasAppeared {
+                // Build 25: auto-collapse Carried Over on first appear if
+                // there are enough items to be visually noisy. Coming up
+                // also defaults collapsed — it's a sneak peek, not the
+                // focus.
+                carriedExpanded = carriedTasks.count <= autoCollapseCarriedThreshold
+                comingUpExpanded = false
                 withAnimation(.bouncy(duration: 0.55).delay(0.05)) {
                     hasAppeared = true
                 }
@@ -274,7 +310,65 @@ struct TodayView: View {
 
     // MARK: Section builder
 
+    /// Build 25: a section that renders the same row layout as taskSection
+    /// but with a tappable header that toggles a binding-controlled expand
+    /// state. Tap the header → spring animation collapses/expands the
+    /// rows. Header shows a chevron + count when collapsed.
     @ViewBuilder
+    private func collapsibleSection(
+        title: String,
+        count: Int,
+        accent: Color,
+        tasks: [TaskItem],
+        isExpanded: Binding<Bool>,
+        showsCarriedChip: Bool = false
+    ) -> some View {
+        Section {
+            if isExpanded.wrappedValue {
+                ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
+                    TaskRowActionContainer(task: task, onEdit: { detailTask = task }) {
+                        TaskRow(
+                            task: task,
+                            showsCarriedOverChip: showsCarriedChip,
+                            onTitleTap: { detailTask = task }
+                        )
+                    }
+                    .opacity(hasAppeared ? 1 : 0)
+                    .offset(y: hasAppeared ? 0 : 12)
+                    .animation(
+                        .bouncy(duration: 0.5).delay(Double(index) * 0.04),
+                        value: hasAppeared
+                    )
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 4, leading: Tokens.Space.lg, bottom: 4, trailing: Tokens.Space.lg))
+                }
+            }
+        } header: {
+            Button {
+                Haptics.tap()
+                withAnimation(.bouncy(duration: 0.4)) {
+                    isExpanded.wrappedValue.toggle()
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Tokens.Color.text3)
+                        .rotationEffect(.degrees(isExpanded.wrappedValue ? 90 : 0))
+                        .animation(.smooth(duration: 0.25), value: isExpanded.wrappedValue)
+                    GroupHeader(title: title, count: count, accent: accent)
+                        .textCase(nil)
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.bottom, 4)
+        }
+        .listSectionSeparator(.hidden)
+    }
+
     private func taskSection(title: String, count: Int, accent: Color, tasks: [TaskItem], showsCarriedChip: Bool = false) -> some View {
         Section {
             ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
@@ -414,6 +508,27 @@ struct TodayView: View {
                     && task.dueDate != nil
                     && Calendar.current.isDateInToday(task.dueDate!)
                     && task.allDay
+            }
+            .sorted(by: taskOrdering)
+    }
+
+    /// Build 25: tasks due in the next N days (excluding today + carried
+    /// over). Surfaced in a collapsible "Coming up" section below Today.
+    /// Window is user-configurable (Settings → Today → Coming up window).
+    private var comingUpTasks: [TaskItem] {
+        let cal = Calendar.current
+        let startOfTomorrow = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: .now)) ?? .now
+        let windowEnd = cal.date(byAdding: .day, value: comingUpWindowDays, to: startOfTomorrow) ?? .now
+        return allTasks
+            .filter { task in
+                guard task.status == .open,
+                      task.parent == nil,
+                      !task.isPinned,
+                      let due = task.dueDate else { return false }
+                // Strictly between tomorrow's start and the configured
+                // window end. Today's own tasks are excluded; so is
+                // anything carried over from before.
+                return due >= startOfTomorrow && due < windowEnd
             }
             .sorted(by: taskOrdering)
     }

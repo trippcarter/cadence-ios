@@ -3,6 +3,9 @@ import SwiftUI
 struct TodayHeader: View {
     let date: Date
     var onTapAvatar: () -> Void = {}
+    /// Build 25: tap the search glyph on Today header → opens the cross-
+    /// entity search sheet (same one ⌘F triggers from a hardware keyboard).
+    var onTapSearch: () -> Void = {}
     @EnvironmentObject private var cloudSync: CloudKitSyncManager
 
     var body: some View {
@@ -28,6 +31,21 @@ struct TodayHeader: View {
                 syncIndicator
                     .padding(.trailing, 4)
             }
+            Button {
+                Haptics.tap()
+                onTapSearch()
+            } label: {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.text2)
+                    .frame(width: 30, height: 30)
+                    .background(Tokens.Color.surface)
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(Tokens.Color.borderSoft, lineWidth: 0.5))
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, 4)
+            .accessibilityLabel("Search")
             AvatarCluster(onTap: onTapAvatar)
         }
     }

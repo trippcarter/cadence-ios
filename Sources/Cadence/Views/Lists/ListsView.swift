@@ -67,6 +67,7 @@ struct ListsView: View {
         .navigationDestination(for: ListsViewDestination.self) { dest in
             switch dest {
             case .habits: HabitsDashboardView()
+            case .completedHistory: CompletedHistoryView()
             }
         }
         .toolbar(.hidden, for: .navigationBar)
@@ -231,7 +232,7 @@ struct ListsView: View {
         }
     }
 
-    // MARK: "+ Create household" CTA
+    // MARK: "+ Create space" CTA
 
     @ViewBuilder
     private var createHouseholdRow: some View {
@@ -250,10 +251,10 @@ struct ListsView: View {
                             .foregroundStyle(Tokens.Color.accent2)
                     }
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Create household")
+                        Text("Create space")
                             .font(Tokens.Font.bodyEmphasis)
                             .foregroundStyle(Tokens.Color.text)
-                        Text("Family, team, or any group you share lists with.")
+                        Text("Family, team, crew, or any group you share lists with.")
                             .font(Tokens.Font.caption)
                             .foregroundStyle(Tokens.Color.text3)
                     }
@@ -352,11 +353,61 @@ struct ListsView: View {
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: 4, leading: Tokens.Space.lg, bottom: 4, trailing: Tokens.Space.lg))
             }
+            // Build 25: Completed history isn't a normal "open tasks"
+            // smart list — it routes to a dedicated time-windowed view.
+            NavigationLink(value: ListsViewDestination.completedHistory) {
+                completedHistoryRow
+            }
+            .buttonStyle(.plain)
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 4, leading: Tokens.Space.lg, bottom: 4, trailing: Tokens.Space.lg))
         } header: {
-            GroupHeader(title: "Smart lists", count: SmartListKind.allCases.count, accent: Tokens.Color.teal)
+            GroupHeader(title: "Smart lists", count: SmartListKind.allCases.count + 1, accent: Tokens.Color.teal)
                 .textCase(nil)
         }
         .listSectionSeparator(.hidden)
+    }
+
+    private var completedHistoryRow: some View {
+        HStack(spacing: Tokens.Space.md) {
+            ZStack {
+                RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous)
+                    .fill(Tokens.Color.mint.opacity(0.18))
+                    .frame(width: 34, height: 34)
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.mint)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Completed")
+                    .font(Tokens.Font.bodyEmphasis)
+                    .foregroundStyle(Tokens.Color.text)
+                Text("Your history, grouped by day")
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Tokens.Color.text3)
+            }
+            Spacer()
+            Text("\(completedAllTimeCount)")
+                .font(Tokens.Font.bodyEmphasis)
+                .foregroundStyle(Tokens.Color.text2)
+                .monospacedDigit()
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Tokens.Color.text3)
+        }
+        .padding(.horizontal, Tokens.Space.lg)
+        .padding(.vertical, Tokens.Space.md)
+        .background(Tokens.Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous)
+                .stroke(Tokens.Color.borderSoft, lineWidth: 0.5)
+        )
+    }
+
+    private var completedAllTimeCount: Int {
+        allTasks.filter { $0.status == .completed && $0.parent == nil }.count
     }
 
     // MARK: Header card
@@ -474,8 +525,10 @@ struct ListsView: View {
 }
 
 /// Side-channel navigation values for screens that aren't keyed by a TaskList
-/// (e.g., the Habits dashboard, future Stats / Review history surfaces).
+/// (e.g., the Habits dashboard, completed history view, future Stats /
+/// Review history surfaces).
 enum ListsViewDestination: Hashable {
     case habits
+    case completedHistory
 }
 

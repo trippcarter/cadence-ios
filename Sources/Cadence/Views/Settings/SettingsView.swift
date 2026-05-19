@@ -10,6 +10,9 @@ struct SettingsView: View {
     @AppStorage(PrefsKey.rolloverPolicy)       private var rolloverRaw: String = RolloverPolicy.on.rawValue
     @AppStorage(PrefsKey.themeChoice)          private var themeRaw: String = ThemeChoice.dark.rawValue
     @AppStorage(PrefsKey.notificationsEnabled) private var notifsEnabled: Bool = true
+    @AppStorage(PrefsKey.showComingUpSection)      private var showComingUp: Bool = true
+    @AppStorage(PrefsKey.comingUpWindowDays)       private var comingUpDays: Int = 7
+    @AppStorage(PrefsKey.autoCollapseCarriedThreshold) private var autoCollapseThreshold: Int = 3
     @AppStorage(PrefsKey.focusDurationMinutes) private var focusDuration: Int = 25
     @AppStorage(PrefsKey.focusBreakMinutes)    private var focusBreak: Int = 5
     @AppStorage(PrefsKey.focusPlaySound)       private var focusSound: Bool = true
@@ -85,6 +88,46 @@ struct SettingsView: View {
                     notificationsStatusRow
                     Divider().background(Tokens.Color.borderSoft)
                     sendTestRow
+                }
+
+                section(title: "Today layout") {
+                    HStack {
+                        rowLabel(icon: "calendar.badge.clock", text: "Show \"Coming up\"")
+                        Spacer()
+                        Toggle("", isOn: $showComingUp).labelsHidden().tint(Tokens.Color.accent)
+                    }
+                    .padding(.horizontal, Tokens.Space.lg)
+                    .padding(.vertical, Tokens.Space.md)
+                    if showComingUp {
+                        Divider().background(Tokens.Color.borderSoft)
+                        HStack {
+                            rowLabel(icon: "calendar", text: "Coming up window")
+                            Spacer()
+                            Picker("", selection: $comingUpDays) {
+                                Text("3 days").tag(3)
+                                Text("7 days").tag(7)
+                                Text("14 days").tag(14)
+                            }
+                            .labelsHidden()
+                            .tint(Tokens.Color.accent2)
+                        }
+                        .padding(.horizontal, Tokens.Space.lg)
+                        .padding(.vertical, Tokens.Space.md)
+                    }
+                    Divider().background(Tokens.Color.borderSoft)
+                    HStack {
+                        rowLabel(icon: "rectangle.compress.vertical", text: "Collapse carried over above")
+                        Spacer()
+                        Picker("", selection: $autoCollapseThreshold) {
+                            Text("3").tag(3)
+                            Text("5").tag(5)
+                            Text("10").tag(10)
+                        }
+                        .labelsHidden()
+                        .tint(Tokens.Color.accent2)
+                    }
+                    .padding(.horizontal, Tokens.Space.lg)
+                    .padding(.vertical, Tokens.Space.md)
                 }
 
                 section(title: "Daily brief") {
