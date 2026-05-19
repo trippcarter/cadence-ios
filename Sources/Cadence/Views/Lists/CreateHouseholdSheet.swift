@@ -247,6 +247,24 @@ struct CreateHouseholdSheet: View {
 
         try? modelContext.save()
         WidgetReloader.reload()
+
+        // Build 16 share-perf: pre-create the CKShare for the starter list
+        // in the background NOW so the first time the user taps the share
+        // button it's a cache hit (~200ms) instead of a cold CKContainer
+        // round-trip (~1-2s). Failures are swallowed — the share button
+        // will still work via the lazy path.
+        let ownerName = creatorName
+        Task { @MainActor in
+            let start = Date()
+            do {
+                _ = try await CloudKitSharingService.shared.makeShare(for: starter, ownerName: ownerName)
+                let elapsed = Int(Date().timeIntervalSince(start) * 1000)
+                NSLog("[SHARE-PERF] eager makeShare(starter list) done in %dms", elapsed)
+            } catch {
+                NSLog("[SHARE-PERF] eager makeShare failed: %@", error.localizedDescription)
+            }
+        }
+
         dismiss()
     }
 }

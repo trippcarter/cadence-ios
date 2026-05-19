@@ -27,6 +27,12 @@ struct AddTaskSheet: View {
     @State private var hasTime: Bool = false
     @State private var selectedListID: PersistentIdentifier?
     @State private var priority: Priority = .none
+    /// Inline assignment (Build 16). nil = "Unassigned". Only meaningful
+    /// when the currently-picked list is parented by a Household. Reset to
+    /// nil if the user pivots to a personal list mid-creation.
+    @State private var assignedToIdentifier: String? = nil
+
+    @EnvironmentObject private var authSession: AuthSession
 
     var body: some View {
         NavigationStack {
@@ -93,6 +99,26 @@ struct AddTaskSheet: View {
                             )
                         }
 
+                        // Build 16: inline household-member assignment. Only
+                        // surfaced when the picked list belongs to a household.
+                        if let household = pickedListHousehold,
+                           !household.membershipsArray.isEmpty {
+                            VStack(alignment: .leading, spacing: Tokens.Space.md) {
+                                HStack(spacing: 6) {
+                                    sectionLabel("Assign to")
+                                    Spacer()
+                                    Text(household.name)
+                                        .font(Tokens.Font.chip)
+                                        .foregroundStyle(Tokens.Color.text3)
+                                }
+                                AssigneePickerStrip(
+                                    members: household.membershipsArray,
+                                    selectedIdentifier: $assignedToIdentifier
+                                )
+                            }
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
+
                         VStack(alignment: .leading, spacing: Tokens.Space.md) {
                             sectionLabel("Priority")
                             PriorityPickerStrip(selected: $priority)
@@ -134,6 +160,26 @@ struct AddTaskSheet: View {
         .onChange(of: titleInput) { _, newValue in
             applyParse(newValue)
         }
+        .onChange(of: selectedListID) { _, _ in
+            // When the user pivots to a personal list mid-flow, smoothly
+            // clear the picked assignee so the inline picker doesn't leave
+            // stale state hidden behind the section's transition.
+            if pickedListHousehold == nil, assignedToIdentifier != nil {
+                withAnimation(.smooth(duration: 0.25)) {
+                    assignedToIdentifier = nil
+                }
+            }
+        }
+        .animation(.smooth(duration: 0.25), value: pickedListHousehold?.id)
+    }
+
+    /// Household of the currently-selected list, or nil for personal lists.
+    /// Drives whether the inline "Assign to" picker renders.
+    private var pickedListHousehold: Household? {
+        guard let listID = selectedListID,
+              let list = lists.first(where: { $0.persistentModelID == listID })
+        else { return nil }
+        return list.household
     }
 
     private var hasParsedSomething: Bool {
@@ -299,6 +345,14 @@ struct AddTaskSheet: View {
             isTimeBlocked: shouldMirror,
             mirrorCalendarId: shouldMirror ? defaultCalID : nil
         )
+        // Inline household assignment (Build 16). Only stamp when the
+        // chosen list belongs to a household — guards against orphan
+        // assignedTo strings on personal-list tasks.
+        if list.household != nil, let assignee = assignedToIdentifier {
+            task.assignedTo = assignee
+            task.assignedBy = authSession.state.user?.appleUserIdentifier
+            task.assignedAt = .now
+        }
         modelContext.insert(task)
         try? modelContext.save()
         ActivityLogger.record(.created, for: task, in: modelContext)
@@ -397,5 +451,89 @@ private struct PriorityPickerStrip: View {
                 )
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Assignee picker (Build 16)
+
+/// Horizontal scroll of avatar chips: "Unassigned" followed by one chip per
+/// household member. Tapping selects (single-select); the selected chip
+/// gets a violet outer ring and slight scale bump.
+private struct AssigneePickerStrip: View {
+    let members: [HouseholdMembership]
+    @Binding var selectedIdentifier: String?
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: Tokens.Space.md) {
+                unassignedChip
+                ForEach(members, id: \.id) { member in
+                    chip(for: member)
+                }
+            }
+            .padding(.horizontal, 2) // breathing room so the ring isn't clipped
+        }
+    }
+
+    private var unassignedChip: some View {
+        let isSelected = selectedIdentifier == nil
+        return Button {
+            Haptics.tap()
+            withAnimation(.bouncy(duration: 0.3)) {
+                selectedIdentifier = nil
+            }
+        } label: {
+            VStack(spacing: 4) {
+                ZStack {
+                    Circle()
+                        .stroke(isSelected ? Tokens.Color.accent : Tokens.Color.borderSoft,
+                                lineWidth: isSelected ? 2 : 1)
+                        .frame(width: 38, height: 38)
+                    Circle()
+                        .fill(Tokens.Color.surface2)
+                        .frame(width: 30, height: 30)
+                    Image(systemName: "person.crop.circle.badge.questionmark")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(isSelected ? Tokens.Color.accent2 : Tokens.Color.text3)
+                }
+                Text("None")
+                    .font(Tokens.Font.chip)
+                    .foregroundStyle(isSelected ? Tokens.Color.accent2 : Tokens.Color.text3)
+            }
+            .scaleEffect(isSelected ? 1.05 : 1.0)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Unassigned")
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+    }
+
+    private func chip(for member: HouseholdMembership) -> some View {
+        let isSelected = selectedIdentifier == member.userIdentifier
+        return Button {
+            Haptics.tap()
+            withAnimation(.bouncy(duration: 0.3)) {
+                selectedIdentifier = member.userIdentifier
+            }
+        } label: {
+            VStack(spacing: 4) {
+                ZStack {
+                    Circle()
+                        .stroke(isSelected ? Tokens.Color.accent : Tokens.Color.borderSoft,
+                                lineWidth: isSelected ? 2 : 1)
+                        .frame(width: 38, height: 38)
+                    AssigneeAvatar(initial: member.avatarInitial,
+                                   colorKey: member.avatarColorKey,
+                                   size: 30)
+                }
+                Text(member.displayName.split(separator: " ").first.map(String.init) ?? member.displayName)
+                    .font(Tokens.Font.chip)
+                    .foregroundStyle(isSelected ? Tokens.Color.accent2 : Tokens.Color.text2)
+                    .lineLimit(1)
+            }
+            .scaleEffect(isSelected ? 1.05 : 1.0)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Assign to \(member.displayName)")
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 }

@@ -19,6 +19,7 @@ struct ListDetailView: View {
     @State private var showingAddTask = false
     @State private var presentingShare: CKSharePresentation?
     @State private var showingActivity = false
+    @State private var isPreparingShare = false
     @StateObject private var selection = TaskSelectionState()
 
     var body: some View {
@@ -35,9 +36,18 @@ struct ListDetailView: View {
                 BatchActionBar(selection: selection, allTasks: filteredTasks)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
+
+            // Build 16: immediate feedback during the CKShare prep window.
+            // CloudKit's first-share latency can run 1-2s; without this
+            // overlay the user just sees an unresponsive button.
+            if isPreparingShare {
+                shareLoadingOverlay
+                    .transition(.opacity)
+            }
         }
         .animation(.bouncy(duration: 0.4), value: selection.isActive)
         .animation(.smooth(duration: 0.25), value: selection.selectedIDs.count)
+        .animation(.smooth(duration: 0.25), value: isPreparingShare)
         .navigationTitle(selection.isActive
                          ? "\(selection.selectedCount) Selected"
                          : source.displayName)
@@ -126,17 +136,54 @@ struct ListDetailView: View {
     private func openShareSheet(for list: TaskList) async {
         Haptics.tap()
         let service = CloudKitSharingService.shared
+        let start = Date()
+        let ownerName = AuthSession.shared.state.user?.displayName ?? "Owner"
+        NSLog("[SHARE-PERF] openShareSheet start list=%@ hasExistingRecord=%@",
+              list.name, list.shareRecordName != nil ? "yes" : "no")
+        withAnimation(.smooth(duration: 0.2)) { isPreparingShare = true }
+        defer {
+            let elapsed = Int(Date().timeIntervalSince(start) * 1000)
+            NSLog("[SHARE-PERF] openShareSheet done in %dms", elapsed)
+            withAnimation(.smooth(duration: 0.25)) { isPreparingShare = false }
+        }
         do {
             let result: (CKShare, CKContainer)
             if let existing = await service.existingShare(for: list) {
                 result = (existing, CKContainer(identifier: CadenceContainer.cloudContainerID))
+                NSLog("[SHARE-PERF] reused existing share")
             } else {
-                let ownerName = "Tripp" // TODO: pull from iCloud identity once available
+                NSLog("[SHARE-PERF] making new share (cold path)")
                 result = try await service.makeShare(for: list, ownerName: ownerName)
             }
             presentingShare = CKSharePresentation(share: result.0, container: result.1)
         } catch {
-            NSLog("[Cadence-Share] error opening share sheet: %@", error.localizedDescription)
+            NSLog("[SHARE-PERF] error: %@", error.localizedDescription)
+        }
+    }
+
+    /// Soft full-screen overlay during CKShare prep. Spinner + "Preparing
+    /// share…" pill in the center; rest of the screen dims behind a
+    /// subtle blur so the wait feels intentional.
+    private var shareLoadingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.35)
+                .ignoresSafeArea()
+            VStack(spacing: Tokens.Space.md) {
+                ProgressView()
+                    .controlSize(.large)
+                    .tint(Tokens.Color.accent2)
+                Text("Preparing share…")
+                    .font(Tokens.Font.bodyEmphasis)
+                    .foregroundStyle(Tokens.Color.text)
+            }
+            .padding(.horizontal, Tokens.Space.xl)
+            .padding(.vertical, Tokens.Space.lg)
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous)
+                    .stroke(Tokens.Color.borderSoft, lineWidth: 0.5)
+            )
         }
     }
 
