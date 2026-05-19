@@ -29,6 +29,7 @@ enum ListSource: Hashable {
 }
 
 enum SmartListKind: String, CaseIterable, Hashable, Identifiable {
+    case assignedToMe
     case noDueDate
     case overdue
 
@@ -36,29 +37,33 @@ enum SmartListKind: String, CaseIterable, Hashable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .noDueDate: return "No due date"
-        case .overdue:   return "Overdue"
+        case .assignedToMe: return "Assigned to me"
+        case .noDueDate:    return "No due date"
+        case .overdue:      return "Overdue"
         }
     }
 
     var subtitle: String {
         switch self {
-        case .noDueDate: return "Tasks waiting for a date"
-        case .overdue:   return "Past due, still open"
+        case .assignedToMe: return "Across every household you're in"
+        case .noDueDate:    return "Tasks waiting for a date"
+        case .overdue:      return "Past due, still open"
         }
     }
 
     var iconKey: String {
         switch self {
-        case .noDueDate: return "infinity"
-        case .overdue:   return "exclamationmark.triangle.fill"
+        case .assignedToMe: return "person.crop.circle.fill.badge.checkmark"
+        case .noDueDate:    return "infinity"
+        case .overdue:      return "exclamationmark.triangle.fill"
         }
     }
 
     var colorKey: String {
         switch self {
-        case .noDueDate: return "indigo"
-        case .overdue:   return "rose"
+        case .assignedToMe: return "violet"
+        case .noDueDate:    return "indigo"
+        case .overdue:      return "rose"
         }
     }
 }

@@ -221,6 +221,14 @@ struct ListDetailView: View {
         switch source {
         case .list(let list):
             tasksForSource = allTasks.filter { $0.list?.id == list.id && $0.parent == nil }
+        case .smart(.assignedToMe):
+            let me = AuthSession.shared.state.user?.appleUserIdentifier
+            tasksForSource = allTasks.filter {
+                $0.status == .open
+                    && $0.parent == nil
+                    && me != nil
+                    && $0.assignedTo == me
+            }
         case .smart(.noDueDate):
             tasksForSource = allTasks.filter { $0.status == .open && $0.dueDate == nil && $0.parent == nil }
         case .smart(.overdue):

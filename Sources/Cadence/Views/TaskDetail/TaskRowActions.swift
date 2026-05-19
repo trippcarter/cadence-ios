@@ -159,6 +159,31 @@ struct TaskRowActionContainer<Content: View>: View {
             Label("Move to list", systemImage: "tray.and.arrow.up")
         }
 
+        // Assign to... submenu (only for tasks in a household list, Build 15)
+        if let household = task.list?.household, !household.membershipsArray.isEmpty {
+            Menu {
+                Button {
+                    assign(to: nil)
+                } label: {
+                    Label(task.assignedTo == nil ? "Unassigned ✓" : "Unassigned", systemImage: "person.crop.circle.badge.xmark")
+                }
+                Divider()
+                ForEach(household.membershipsArray, id: \.id) { member in
+                    Button {
+                        assign(to: member)
+                    } label: {
+                        if task.assignedTo == member.userIdentifier {
+                            Label("\(member.displayName) ✓", systemImage: "checkmark.circle.fill")
+                        } else {
+                            Label(member.displayName, systemImage: "person.crop.circle")
+                        }
+                    }
+                }
+            } label: {
+                Label("Assign to", systemImage: "person.crop.circle.badge.checkmark")
+            }
+        }
+
         // Set priority submenu
         Menu {
             priorityMenuItem(.none, label: "None")
@@ -260,6 +285,20 @@ struct TaskRowActionContainer<Content: View>: View {
         Haptics.tap()
         withAnimation(.smooth(duration: 0.25)) {
             task.priority = priority
+            task.modifiedAt = .now
+        }
+        try? modelContext.save()
+        Task { await SharedListMirror.shared.taskChanged(task) }
+    }
+
+    /// Build 15: assign or unassign a task. `member == nil` means clear the
+    /// assignment. Stamps `assignedBy` + `assignedAt` from the current user.
+    private func assign(to member: HouseholdMembership?) {
+        Haptics.success()
+        withAnimation(.smooth(duration: 0.25)) {
+            task.assignedTo = member?.userIdentifier
+            task.assignedBy = AuthSession.shared.state.user?.appleUserIdentifier
+            task.assignedAt = member == nil ? nil : .now
             task.modifiedAt = .now
         }
         try? modelContext.save()

@@ -201,12 +201,36 @@ struct TaskRow: View {
         if let list = task.list {
             result.append(AnyView(listChip(for: list)))
         }
+        if let membership = assigneeMembership {
+            result.append(AnyView(assigneeChip(membership: membership)))
+        }
         if isMirrorDiverged {
             result.append(AnyView(divergedChip))
         } else if task.hasActiveMirror {
             result.append(AnyView(mirroredChip))
         }
         return result
+    }
+
+    /// Look up the HouseholdMembership matching task.assignedTo so the row
+    /// can render the assignee's avatar + name without a network roundtrip.
+    private var assigneeMembership: HouseholdMembership? {
+        guard let identifier = task.assignedTo,
+              let household = task.list?.household else { return nil }
+        return household.membershipsArray.first { $0.userIdentifier == identifier }
+    }
+
+    private func assigneeChip(membership: HouseholdMembership) -> some View {
+        HStack(spacing: 4) {
+            AssigneeAvatar(initial: membership.avatarInitial,
+                           colorKey: membership.avatarColorKey,
+                           size: 14)
+            Text(membership.displayName.split(separator: " ").first.map(String.init) ?? membership.displayName)
+                .font(Tokens.Font.chip)
+                .foregroundStyle(Tokens.Color.text2)
+                .lineLimit(1)
+        }
+        .padding(.trailing, 2)
     }
 
     private var recurrenceIcon: some View {

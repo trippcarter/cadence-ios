@@ -32,6 +32,10 @@ enum SeedData {
     // MARK: Default lists (per spec §5.2)
 
     private static func makeDefaultLists() -> [TaskList] {
+        // Build 15 cleanup: "Shared" was a private-by-default placeholder
+        // for sharing that always felt weird. Sharing now happens via
+        // Households (Lists tab → "+ Create household"). Defaults stay
+        // universal — Inbox / Personal / Saved for later.
         [
             TaskList(
                 name: "Inbox",
@@ -48,24 +52,10 @@ enum SeedData {
                 isSeeded: true
             ),
             TaskList(
-                name: "Business",
-                colorKey: "amber",
-                iconKey: "briefcase.fill",
-                sortOrder: 2,
-                isSeeded: true
-            ),
-            TaskList(
-                name: "Shared",
-                colorKey: "teal",
-                iconKey: "person.2.fill",
-                sortOrder: 3,
-                isSeeded: true
-            ),
-            TaskList(
                 name: "Saved for later",
                 colorKey: "indigo",
                 iconKey: "bookmark.fill",
-                sortOrder: 4,
+                sortOrder: 2,
                 isSeeded: true
             ),
         ]
@@ -79,11 +69,22 @@ enum SeedData {
         let yesterday = cal.date(byAdding: .day, value: -1, to: today)!
         let twoDaysAgo = cal.date(byAdding: .day, value: -2, to: today)!
 
-        // Stable lookup by name for readability.
+        // Stable lookup by name for readability. Build 15: "Business" and
+        // "Shared" defaults are gone; the sample data inserts a temporary
+        // dev-only "Business" + "Joint" list so the existing fixture survives
+        // without disrupting the prod default-list contract.
         let byName = Dictionary(uniqueKeysWithValues: lists.map { ($0.name, $0) })
         let personal = byName["Personal"]!
-        let business = byName["Business"]!
-        let joint = byName["Shared"]!
+        let business: TaskList = {
+            let l = TaskList(name: "Business", colorKey: "amber", iconKey: "briefcase.fill", sortOrder: 99, isSeeded: false)
+            context.insert(l)
+            return l
+        }()
+        let joint: TaskList = {
+            let l = TaskList(name: "Joint Business (dev)", colorKey: "teal", iconKey: "person.2.fill", sortOrder: 100, isSeeded: false)
+            context.insert(l)
+            return l
+        }()
 
         func at(_ day: Date, hour: Int, minute: Int = 0) -> Date {
             cal.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? day

@@ -102,6 +102,18 @@ final class TaskItem {
     /// Carried over and Anytime today.
     var isPinned: Bool = false
 
+    // Household assignment (Build 15)
+    /// Apple Sign-In identifier of the household member this task is
+    /// assigned to. nil = unassigned. Only meaningful for tasks whose list
+    /// is parented by a Household; for personal-list tasks the field is
+    /// unused but harmless.
+    var assignedTo: String?
+    /// Apple identifier of whoever assigned it (for the "Assigned by" line
+    /// in the task detail). Nil for self-assignments / pre-Build-15 tasks.
+    var assignedBy: String?
+    /// When the assignment was made. Drives the "Assigned 2h ago" line.
+    var assignedAt: Date?
+
     // Relationships
     var list: TaskList?
     var parent: TaskItem?
@@ -221,10 +233,16 @@ final class TaskList {
     /// Bumped to `Date.now` on every local mutation that affects shared-zone
     /// fields. Drives last-writer-wins for list metadata changes.
     var modifiedAt: Date = Date.now
-    /// One of the seeded default lists (Inbox / Personal / Business /
-    /// Shared / Saved for later). These are non-deletable from the UI.
-    /// Set by SeedData; false for user-created lists.
+    /// One of the seeded default lists (Inbox / Personal / Saved for later).
+    /// These are non-deletable from the UI. Set by SeedData; false for
+    /// user-created lists.
     var isSeeded: Bool = false
+
+    /// The Household this list belongs to, or nil for personal lists.
+    /// Build 15. When non-nil, the list renders under the household's
+    /// section in the Lists sidebar, and any task on the list can be
+    /// assigned to a household member.
+    var household: Household?
 
     @Relationship(deleteRule: .cascade, inverse: \TaskItem.list)
     var tasks: [TaskItem]?

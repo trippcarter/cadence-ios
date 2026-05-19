@@ -246,6 +246,10 @@ struct TaskDetailSheet: View {
                 blockTimeRow
                 Divider().background(Tokens.Color.borderSoft)
                 listRow
+                if task.list?.household != nil {
+                    Divider().background(Tokens.Color.borderSoft)
+                    assignedRow
+                }
                 Divider().background(Tokens.Color.borderSoft)
                 createdByRow
             }
@@ -586,6 +590,82 @@ struct TaskDetailSheet: View {
         }
         .padding(.horizontal, Tokens.Space.lg)
         .padding(.vertical, Tokens.Space.md)
+    }
+
+    /// Build 15: assign a task to a household member. Only shown when the
+    /// task's list belongs to a Household.
+    @ViewBuilder
+    private var assignedRow: some View {
+        let household = task.list?.household
+        let assigneeMembership = household?.membershipsArray.first { $0.userIdentifier == task.assignedTo }
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                detailLabel(icon: "person.crop.circle.badge.checkmark", text: "Assigned to")
+                Spacer()
+                Menu {
+                    Button {
+                        assign(member: nil)
+                    } label: {
+                        if task.assignedTo == nil {
+                            Label("Unassigned ✓", systemImage: "person.crop.circle.badge.xmark")
+                        } else {
+                            Label("Unassigned", systemImage: "person.crop.circle.badge.xmark")
+                        }
+                    }
+                    Divider()
+                    ForEach(household?.membershipsArray ?? [], id: \.id) { member in
+                        Button {
+                            assign(member: member)
+                        } label: {
+                            if task.assignedTo == member.userIdentifier {
+                                Label("\(member.displayName) ✓", systemImage: "checkmark.circle.fill")
+                            } else {
+                                Label(member.displayName, systemImage: "person.crop.circle")
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        if let m = assigneeMembership {
+                            AssigneeAvatar(initial: m.avatarInitial, colorKey: m.avatarColorKey, size: 18)
+                            Text(m.displayName)
+                                .font(Tokens.Font.bodyEmphasis)
+                        } else {
+                            Image(systemName: "person.crop.circle.dashed")
+                                .font(.system(size: 13, weight: .semibold))
+                            Text("Unassigned")
+                                .font(Tokens.Font.bodyEmphasis)
+                        }
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .padding(.horizontal, Tokens.Space.md)
+                    .padding(.vertical, 6)
+                    .background(Tokens.Color.surface2)
+                    .foregroundStyle(Tokens.Color.text)
+                    .clipShape(Capsule())
+                }
+            }
+            if let assignedBy = task.assignedBy,
+               let assignedAt = task.assignedAt,
+               let byMember = household?.membershipsArray.first(where: { $0.userIdentifier == assignedBy }) {
+                Text("Assigned by \(byMember.displayName) · \(assignedAt.formatted(.relative(presentation: .named)))")
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Tokens.Color.text3)
+            }
+        }
+        .padding(.horizontal, Tokens.Space.lg)
+        .padding(.vertical, Tokens.Space.md)
+    }
+
+    private func assign(member: HouseholdMembership?) {
+        Haptics.success()
+        task.assignedTo = member?.userIdentifier
+        task.assignedBy = AuthSession.shared.state.user?.appleUserIdentifier
+        task.assignedAt = member == nil ? nil : .now
+        task.modifiedAt = .now
+        persist()
+        Task { await SharedListMirror.shared.taskChanged(task) }
     }
 
     private func detailLabel(icon: String, text: String) -> some View {

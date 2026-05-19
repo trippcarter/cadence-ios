@@ -67,7 +67,7 @@ struct ResetDataSection: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Tasks, lists, recent activity, and cached calendar events will be removed from this device and iCloud. The default lists (Inbox, Personal, Business, Shared, Saved for later) come back fresh.")
+            Text("Tasks, lists, households, recent activity, and cached calendar events will be removed from this device and iCloud. The default lists (Inbox, Personal, Saved for later) come back fresh.")
         }
     }
 
@@ -77,6 +77,8 @@ struct ResetDataSection: View {
             try modelContext.delete(model: TaskItem.self)
             try modelContext.delete(model: TaskList.self)
             try modelContext.delete(model: Activity.self)
+            try modelContext.delete(model: HouseholdMembership.self)
+            try modelContext.delete(model: Household.self)
             try modelContext.delete(model: CachedEvent.self)
             try modelContext.save()
 
