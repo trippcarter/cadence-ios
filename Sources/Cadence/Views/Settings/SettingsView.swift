@@ -245,7 +245,7 @@ struct SettingsView: View {
                     }
                 }
 
-                section(title: "Theme") {
+                section(title: "Light · Dark · System") {
                     HStack(spacing: Tokens.Space.sm) {
                         ForEach(ThemeChoice.allCases) { choice in
                             themeChip(choice)
@@ -253,6 +253,14 @@ struct SettingsView: View {
                     }
                     .padding(.horizontal, Tokens.Space.lg)
                     .padding(.vertical, Tokens.Space.md)
+                }
+
+                section(title: "Appearance theme") {
+                    AppearanceThemePicker()
+                }
+
+                section(title: "App icon") {
+                    AppIconPicker()
                 }
 
                 section(title: "Danger zone") {

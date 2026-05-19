@@ -58,11 +58,15 @@ enum Tokens {
             dark:  SwiftUI.Color(hex: 0x6E7388)
         )
 
-        // Brand
-        static let accent      = SwiftUI.Color(hex: 0x7C5CFF) // violet
-        static let accent2     = SwiftUI.Color(hex: 0xB794FF) // violet light
-        static let accentDeep  = SwiftUI.Color(hex: 0x5B3CFA) // violet deep
-        static let accentGlow  = SwiftUI.Color(hex: 0x7C5CFF, opacity: 0.35)
+        // Brand — Build 24: now theme-driven. The four accent tokens read
+        // from ThemeManager.shared.current.* at render time. Pick a new
+        // theme in Settings → Appearance and the entire app re-renders
+        // because the @AppStorage(themeKey) at the root invalidates the
+        // tree, which re-evaluates these computed properties.
+        static var accent: SwiftUI.Color      { ThemeManager.shared.current.accent }
+        static var accent2: SwiftUI.Color     { ThemeManager.shared.current.accent2 }
+        static var accentDeep: SwiftUI.Color  { ThemeManager.shared.current.accentDeep }
+        static var accentGlow: SwiftUI.Color  { ThemeManager.shared.current.accentGlow }
 
         // Accent palette (lists, chips, statuses)
         static let indigo = SwiftUI.Color(hex: 0x6366F1)

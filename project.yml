@@ -19,7 +19,7 @@ settings:
     SWIFT_STRICT_CONCURRENCY: minimal
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     MARKETING_VERSION: "1.0.0"
-    CURRENT_PROJECT_VERSION: "23"
+    CURRENT_PROJECT_VERSION: "24"
     GENERATE_INFOPLIST_FILE: YES
     INFOPLIST_KEY_CFBundleDisplayName: Cadence
     SWIFT_TREAT_WARNINGS_AS_ERRORS: NO
@@ -63,6 +63,10 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        # Build 24: list each alternate icon asset name so Xcode compiles
+        # them into the bundle and CFBundleAlternateIcons knows to wire
+        # them up via setAlternateIconName(_:).
+        ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: "Mint Warm Ocean Forest Mono Outdoors Family"
         CODE_SIGN_ENTITLEMENTS: Sources/Cadence/Cadence.entitlements
     info:
       path: Sources/Cadence/Info.plist
@@ -98,6 +102,42 @@ targets:
         # CloudKit silent push wakeups need the remote-notification mode.
         UIBackgroundModes:
           - remote-notification
+        # Build 24: alternate app icon registration. Each key maps to the
+        # icon file name as Xcode compiles it from the asset catalog
+        # (ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES). Tapping a tile
+        # in Settings → App icon calls
+        # UIApplication.shared.setAlternateIconName(key) which iOS
+        # validates against this section.
+        CFBundleIcons:
+          CFBundleAlternateIcons:
+            Mint:
+              CFBundleIconFiles:
+                - AppIcon-Mint-1024
+              UIPrerenderedIcon: false
+            Warm:
+              CFBundleIconFiles:
+                - AppIcon-Warm-1024
+              UIPrerenderedIcon: false
+            Ocean:
+              CFBundleIconFiles:
+                - AppIcon-Ocean-1024
+              UIPrerenderedIcon: false
+            Forest:
+              CFBundleIconFiles:
+                - AppIcon-Forest-1024
+              UIPrerenderedIcon: false
+            Mono:
+              CFBundleIconFiles:
+                - AppIcon-Mono-1024
+              UIPrerenderedIcon: false
+            Outdoors:
+              CFBundleIconFiles:
+                - AppIcon-Outdoors-1024
+              UIPrerenderedIcon: false
+            Family:
+              CFBundleIconFiles:
+                - AppIcon-Family-1024
+              UIPrerenderedIcon: false
         CFBundleURLTypes:
           - CFBundleTypeRole: Editor
             CFBundleURLName: net.mcinnis.cadence.google-oauth
@@ -146,6 +186,7 @@ targets:
       - path: Sources/Cadence/Models/HabitCompletion.swift
       - path: Sources/Cadence/Models/DailyReview.swift
       - path: Sources/Cadence/Tokens.swift
+      - path: Sources/Cadence/Theme/AppTheme.swift
       - path: Sources/Cadence/Util/SharedContainer.swift
       - path: Sources/Cadence/Util/Haptics.swift
     settings:
@@ -202,6 +243,7 @@ targets:
       - path: Sources/Cadence/Models/HabitCompletion.swift
       - path: Sources/Cadence/Models/DailyReview.swift
       - path: Sources/Cadence/Tokens.swift
+      - path: Sources/Cadence/Theme/AppTheme.swift
       - path: Sources/Cadence/Util/SharedContainer.swift
       - path: Sources/Cadence/Util/Haptics.swift
     settings:
@@ -248,6 +290,7 @@ targets:
       - path: Sources/Cadence/Models/HabitCompletion.swift
       - path: Sources/Cadence/Models/DailyReview.swift
       - path: Sources/Cadence/Tokens.swift
+      - path: Sources/Cadence/Theme/AppTheme.swift
       - path: Sources/Cadence/Util/SharedContainer.swift
     settings:
       base:

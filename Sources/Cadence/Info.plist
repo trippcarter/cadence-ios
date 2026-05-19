@@ -8,6 +8,75 @@
 	<string>Cadence</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIcons</key>
+	<dict>
+		<key>CFBundleAlternateIcons</key>
+		<dict>
+			<key>Family</key>
+			<dict>
+				<key>CFBundleIconFiles</key>
+				<array>
+					<string>AppIcon-Family-1024</string>
+				</array>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
+			<key>Forest</key>
+			<dict>
+				<key>CFBundleIconFiles</key>
+				<array>
+					<string>AppIcon-Forest-1024</string>
+				</array>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
+			<key>Mint</key>
+			<dict>
+				<key>CFBundleIconFiles</key>
+				<array>
+					<string>AppIcon-Mint-1024</string>
+				</array>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
+			<key>Mono</key>
+			<dict>
+				<key>CFBundleIconFiles</key>
+				<array>
+					<string>AppIcon-Mono-1024</string>
+				</array>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
+			<key>Ocean</key>
+			<dict>
+				<key>CFBundleIconFiles</key>
+				<array>
+					<string>AppIcon-Ocean-1024</string>
+				</array>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
+			<key>Outdoors</key>
+			<dict>
+				<key>CFBundleIconFiles</key>
+				<array>
+					<string>AppIcon-Outdoors-1024</string>
+				</array>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
+			<key>Warm</key>
+			<dict>
+				<key>CFBundleIconFiles</key>
+				<array>
+					<string>AppIcon-Warm-1024</string>
+				</array>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
+		</dict>
+	</dict>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>

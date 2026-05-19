@@ -49,6 +49,13 @@ enum PrefsKey {
     static let dailyReviewHour          = "dailyReviewHour"
     /// Minute-of-hour for the review notification fire.
     static let dailyReviewMinute        = "dailyReviewMinute"
+
+    // Theme + icon personalization (Build 24)
+    /// AppTheme.rawValue. Drives Tokens.Color.accent / accent2 / accentDeep
+    /// / accentGlow at render time via ThemeManager.shared.
+    static let themeKey                 = "themeKey"
+    /// Currently-selected alternate app icon name. nil = default.
+    static let alternateIconName        = "alternateIconName"
 }
 
 /// Per-Apple-Sign-In-identifier preferences. Different users on the same

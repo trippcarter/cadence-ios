@@ -112,6 +112,14 @@ struct RootView: View {
             BottomTabBar(selected: $selectedTab) {
                 showingAddTask = true
             }
+            // Build 24: hidden buttons hold the global keyboard shortcuts
+            // for hardware keyboards (Magic Keyboard on iPad, USB on
+            // iPhone). Invisible to touch users, surface in the iOS
+            // "Hold ⌘" keyboard discoverability HUD.
+            keyboardShortcutShelf
+                .frame(width: 0, height: 0)
+                .opacity(0)
+                .accessibilityHidden(true)
         }
         .ignoresSafeArea(.keyboard)
         .background(Tokens.Color.bg.ignoresSafeArea())
@@ -154,6 +162,26 @@ struct RootView: View {
             }
         case .you:
             SettingsView()
+        }
+    }
+
+    /// Build 24: hardware-keyboard shortcuts. Each Button below is
+    /// rendered with zero size but its `.keyboardShortcut` modifier
+    /// registers the key combo with UIKit's first-responder chain.
+    /// Visible in iOS's "Hold ⌘" discoverability HUD.
+    @ViewBuilder
+    private var keyboardShortcutShelf: some View {
+        Group {
+            Button("New task") { showingAddTask = true }
+                .keyboardShortcut("n", modifiers: .command)
+            Button("Today")    { selectedTab = .today }
+                .keyboardShortcut("1", modifiers: .command)
+            Button("Calendar") { selectedTab = .week }
+                .keyboardShortcut("2", modifiers: .command)
+            Button("Lists")    { selectedTab = .lists }
+                .keyboardShortcut("3", modifiers: .command)
+            Button("You")      { selectedTab = .you }
+                .keyboardShortcut("4", modifiers: .command)
         }
     }
 

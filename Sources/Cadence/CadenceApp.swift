@@ -12,6 +12,12 @@ struct CadenceApp: App {
     @State private var container: ModelContainer?
     @State private var containerError: ContainerInitError?
     @AppStorage(PrefsKey.themeChoice) private var themeRaw: String = ThemeChoice.system.rawValue
+    /// Build 24: re-rendering the tree when the AppTheme picker changes
+    /// hangs off this @AppStorage. ThemeManager.shared.current is updated
+    /// in-place by `applyTheme` below; SwiftUI re-renders because this
+    /// property is read by `resolvedColorScheme` (via prefersForceDark)
+    /// and any view that reads it cascades.
+    @AppStorage(PrefsKey.themeKey) private var themeKey: String = AppTheme.violet.rawValue
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var notifications = NotificationManager.shared
     @StateObject private var cloudSync = CloudKitSyncManager.shared
@@ -95,6 +101,15 @@ struct CadenceApp: App {
                 }
             }
         }
+        .onChange(of: themeKey, initial: true) { _, newValue in
+            // Build 24: keep ThemeManager's singleton in sync with the
+            // @AppStorage value. The @AppStorage itself triggers the
+            // SwiftUI re-render that lets Tokens.Color.accent return the
+            // new theme's color.
+            if let theme = AppTheme(rawValue: newValue) {
+                ThemeManager.shared.apply(theme)
+            }
+        }
     }
 
     // MARK: Recovery actions
@@ -136,9 +151,15 @@ struct CadenceApp: App {
     /// or nil (System). Logs to help diagnose the "theme doesn't change"
     /// reports that have shown up in TestFlight.
     private var resolvedColorScheme: ColorScheme? {
+        // Build 24: Mono + High Contrast themes force dark regardless of
+        // the Light/Dark/System picker, since they're aesthetic statements
+        // that don't bend to system appearance.
+        let theme = AppTheme(rawValue: themeKey) ?? .violet
+        if theme.prefersForceDark { return .dark }
         let choice = ThemeChoice(rawValue: themeRaw) ?? .system
         let scheme = choice.colorScheme
-        NSLog("[THEME] applying choice=%@ scheme=%@",
+        NSLog("[THEME] applying theme=%@ choice=%@ scheme=%@",
+              theme.rawValue,
               choice.rawValue,
               scheme == .dark ? "dark" : scheme == .light ? "light" : "system")
         return scheme
