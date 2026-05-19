@@ -133,6 +133,18 @@ final class TaskItem {
     /// Convenience non-optional accessor that callers use everywhere.
     var subtaskList: [TaskItem] { subtasks ?? [] }
 
+    // Build 19 hotfix: every CloudKit-backed @Model relationship requires
+    // an inverse. FocusSession.task and HabitCompletion.task were declared
+    // in Build 18 without these inverse arrays, which caused SwiftData's
+    // ModelContainer initialization to throw at app launch on devices
+    // that already had a Build 17 schema on disk. Adding them is purely
+    // additive (lightweight migration handles it).
+    @Relationship(deleteRule: .cascade, inverse: \FocusSession.task)
+    var focusSessions: [FocusSession]?
+
+    @Relationship(deleteRule: .cascade, inverse: \HabitCompletion.task)
+    var habitCompletions: [HabitCompletion]?
+
     init(
         id: UUID = UUID(),
         title: String,
