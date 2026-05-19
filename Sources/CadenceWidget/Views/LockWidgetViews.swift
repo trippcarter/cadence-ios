@@ -6,13 +6,9 @@ import WidgetKit
 struct CircularLockView: View {
     let entry: CadenceWidgetEntry
 
-    private var count: Int {
-        entry.todaysTasks.filter { !$0.isCompleted }.count
-    }
+    private var count: Int { entry.openTaskCount }
 
     var body: some View {
-        // accessoryCircular renders monochrome; the system tints based on the
-        // wallpaper. Aim for a clean numeric centerpiece with a tiny label.
         ZStack {
             AccessoryWidgetBackground()
             VStack(spacing: -2) {
@@ -28,14 +24,10 @@ struct CircularLockView: View {
     }
 }
 
-// MARK: Rectangular — next-task summary
+// MARK: Rectangular — next-task or next-event summary
 
 struct RectangularLockView: View {
     let entry: CadenceWidgetEntry
-
-    private var next: WidgetTaskInfo? {
-        entry.todaysTasks.first(where: { !$0.isCompleted })
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
@@ -43,13 +35,13 @@ struct RectangularLockView: View {
                 .font(.system(size: 9, weight: .semibold))
                 .kerning(0.6)
                 .opacity(0.7)
-            if let next {
-                if let time = next.timeText {
+            if let next = entry.nextItem {
+                if let time = nextTime(next) {
                     Text(time)
                         .font(.system(size: 13, weight: .bold, design: .rounded))
                         .widgetAccentable()
                 }
-                Text(next.title)
+                Text(nextTitle(next))
                     .font(.system(size: 13, weight: .medium))
                     .lineLimit(2)
             } else {
@@ -60,6 +52,20 @@ struct RectangularLockView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .containerBackground(for: .widget) { Color.clear }
     }
+
+    private func nextTime(_ item: WidgetItem) -> String? {
+        switch item {
+        case .task(let t):  return t.timeText
+        case .event(let e): return e.timeText
+        }
+    }
+
+    private func nextTitle(_ item: WidgetItem) -> String {
+        switch item {
+        case .task(let t):  return t.title
+        case .event(let e): return e.title
+        }
+    }
 }
 
 // MARK: Inline — one-line summary
@@ -67,23 +73,32 @@ struct RectangularLockView: View {
 struct InlineLockView: View {
     let entry: CadenceWidgetEntry
 
-    private var count: Int {
-        entry.todaysTasks.filter { !$0.isCompleted }.count
-    }
-
-    private var next: WidgetTaskInfo? {
-        entry.todaysTasks.first(where: { !$0.isCompleted })
-    }
-
     var body: some View {
-        if let next {
-            if let time = next.timeText {
-                Text("⏵ \(count) tasks · next \(time) \(next.title)")
+        if let next = entry.nextItem {
+            let label = title(next)
+            if let time = time(next) {
+                Text("⏵ \(entry.openTaskCount) tasks · next \(time) \(label)")
             } else {
-                Text("⏵ \(count) tasks · next: \(next.title)")
+                Text("⏵ \(entry.openTaskCount) tasks · next: \(label)")
             }
+        } else if entry.openTaskCount > 0 {
+            Text("⏵ \(entry.openTaskCount) tasks today")
         } else {
             Text("⏵ Nothing on your plate today")
+        }
+    }
+
+    private func time(_ item: WidgetItem) -> String? {
+        switch item {
+        case .task(let t):  return t.timeText
+        case .event(let e): return e.timeText
+        }
+    }
+
+    private func title(_ item: WidgetItem) -> String {
+        switch item {
+        case .task(let t):  return t.title
+        case .event(let e): return e.title
         }
     }
 }

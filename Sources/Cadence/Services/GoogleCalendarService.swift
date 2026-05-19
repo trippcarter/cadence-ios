@@ -285,6 +285,10 @@ final class GoogleCalendarService: ObservableObject {
             }
         }
         try? context.save()
+        // Build 29: events feed the widget too — refresh timelines so a
+        // newly-synced meeting shows up on the home screen / lock screen
+        // without waiting for the next 15-minute cadence.
+        WidgetReloader.reload(reason: "google events refreshed")
     }
 
     func fetchEvents(for account: ConnectedAccount) async throws {

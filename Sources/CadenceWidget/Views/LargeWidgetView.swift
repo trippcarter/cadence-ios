@@ -4,12 +4,8 @@ import WidgetKit
 struct LargeWidgetView: View {
     let entry: CadenceWidgetEntry
 
-    /// All open tasks for today — used by the stat card. Display list takes a prefix.
-    private var openTasks: [WidgetTaskInfo] {
-        entry.todaysTasks.filter { !$0.isCompleted }
-    }
-    private var displayTasks: [WidgetTaskInfo] {
-        Array(openTasks.prefix(6))
+    private var displayItems: [WidgetItem] {
+        Array(entry.items.prefix(6))
     }
 
     var body: some View {
@@ -26,13 +22,13 @@ struct LargeWidgetView: View {
             Divider().background(Tokens.Color.borderSoft).padding(.horizontal, 12)
 
             VStack(spacing: 1) {
-                ForEach(displayTasks) { task in
-                    WidgetTaskRow(task: task)
-                    if task.id != displayTasks.last?.id {
+                ForEach(displayItems) { item in
+                    WidgetItemRow(item: item)
+                    if item.id != displayItems.last?.id {
                         Divider().background(Tokens.Color.borderSoft).padding(.leading, 38)
                     }
                 }
-                if displayTasks.isEmpty {
+                if displayItems.isEmpty {
                     Spacer(minLength: 0)
                     Text("Nothing on your plate today")
                         .font(.system(size: 12))
@@ -64,9 +60,11 @@ struct LargeWidgetView: View {
 
     private var statStrip: some View {
         HStack(spacing: 8) {
-            statCard("TODAY", value: "\(openTasks.count)", color: Tokens.Color.text)
-            statCard("EVENTS", value: "\(entry.eventsCount)", color: Tokens.Color.text2)
-            statCard("CARRIED", value: "\(entry.carriedCount)", color: entry.carriedCount > 0 ? Tokens.Color.amber : Tokens.Color.text2)
+            statCard("TASKS", value: "\(entry.openTaskCount)", color: Tokens.Color.text)
+            statCard("EVENTS", value: "\(entry.eventsCount)",
+                     color: entry.eventsCount > 0 ? Tokens.Color.teal : Tokens.Color.text2)
+            statCard("CARRIED", value: "\(entry.carriedCount)",
+                     color: entry.carriedCount > 0 ? Tokens.Color.amber : Tokens.Color.text2)
         }
     }
 

@@ -134,22 +134,26 @@ struct WidgetGalleryView: View {
             if lhs.allDay != rhs.allDay { return !lhs.allDay }
             return (lhs.dueDate ?? .distantFuture) < (rhs.dueDate ?? .distantFuture)
         }
-        let projected = sorted.map { t in
-            WidgetTaskInfo(
+        let startOfToday = cal.startOfDay(for: .now)
+        let projected: [WidgetItem] = sorted.map { t in
+            .task(WidgetTaskInfo(
                 id: t.id,
                 title: t.title,
                 dueDate: t.dueDate,
                 allDay: t.allDay,
                 colorKey: t.list?.colorKey ?? "violet",
                 listName: t.list?.name ?? "Inbox",
-                isCompleted: t.status == .completed
-            )
+                isCompleted: t.status == .completed,
+                isCarriedOver: (t.dueDate.map { $0 < startOfToday }) ?? false
+            ))
         }
         return CadenceWidgetEntry(
             date: .now,
-            todaysTasks: projected,
+            items: projected,
+            openTaskCount: sorted.filter { $0.status != .completed }.count,
             carriedCount: carried.count,
-            eventsCount: 0
+            eventsCount: 0,
+            nextItem: projected.first
         )
     }
 }
