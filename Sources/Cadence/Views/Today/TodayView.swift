@@ -36,7 +36,7 @@ struct TodayView: View {
 
     @AppStorage(PrefsKey.showComingUpSection) private var showsComingUpSection: Bool = true
     @AppStorage(PrefsKey.comingUpWindowDays) private var comingUpWindowDays: Int = 7
-    @AppStorage(PrefsKey.autoCollapseCarriedThreshold) private var autoCollapseCarriedThreshold: Int = 3
+    @AppStorage(PrefsKey.autoCollapseCarriedThreshold) private var autoCollapseCarriedThreshold: Int = 10
 
     var body: some View {
         ZStack {
@@ -99,9 +99,11 @@ struct TodayView: View {
                     .listRowInsets(EdgeInsets(top: Tokens.Space.lg, leading: Tokens.Space.lg, bottom: Tokens.Space.md, trailing: Tokens.Space.lg))
                 }
 
-                // Build 25 reorg: Pinned → Today → Coming up → Carried over
-                // → Completed. Carried over no longer dominates the top of
-                // the screen even when there are old tasks lingering.
+                // Build 30 rebalance: Pinned → Carried over (back above
+                // Today, expanded by default unless the threshold trips)
+                // → Today → Coming up → Completed. Build 25 had pushed
+                // Carried over to the bottom, but tasks you said you'd do
+                // deserve top-of-mind placement.
 
                 if !pinnedTasks.isEmpty {
                     taskSection(
@@ -109,6 +111,19 @@ struct TodayView: View {
                         count: pinnedTasks.count,
                         accent: Tokens.Color.amber,
                         tasks: pinnedTasks
+                    )
+                }
+
+                if !carriedTasks.isEmpty {
+                    collapsibleSection(
+                        title: "Carried over",
+                        count: carriedTasks.count,
+                        accent: Tokens.Color.amber,
+                        tasks: carriedTasks,
+                        isExpanded: $carriedExpanded,
+                        showsCarriedChip: true,
+                        headerIcon: "calendar.badge.clock",
+                        tintBackground: true
                     )
                 }
 
@@ -127,17 +142,6 @@ struct TodayView: View {
                         accent: Tokens.Color.indigo,
                         tasks: comingUpTasks,
                         isExpanded: $comingUpExpanded
-                    )
-                }
-
-                if !carriedTasks.isEmpty {
-                    collapsibleSection(
-                        title: "Carried over",
-                        count: carriedTasks.count,
-                        accent: Tokens.Color.amber,
-                        tasks: carriedTasks,
-                        isExpanded: $carriedExpanded,
-                        showsCarriedChip: true
                     )
                 }
 
@@ -172,10 +176,11 @@ struct TodayView: View {
         .onAppear {
             now = .now
             if !hasAppeared {
-                // Build 25: auto-collapse Carried Over on first appear if
-                // there are enough items to be visually noisy. Coming up
-                // also defaults collapsed — it's a sneak peek, not the
-                // focus.
+                applyCarriedThresholdMigrationIfNeeded()
+                // Build 30: Carried over defaults EXPANDED. Auto-collapse
+                // only when count exceeds the threshold (default 10, was
+                // 3 before). Coming up still defaults collapsed — sneak
+                // peek, not focus.
                 carriedExpanded = carriedTasks.count <= autoCollapseCarriedThreshold
                 comingUpExpanded = false
                 withAnimation(.bouncy(duration: 0.55).delay(0.05)) {
@@ -321,7 +326,9 @@ struct TodayView: View {
         accent: Color,
         tasks: [TaskItem],
         isExpanded: Binding<Bool>,
-        showsCarriedChip: Bool = false
+        showsCarriedChip: Bool = false,
+        headerIcon: String? = nil,
+        tintBackground: Bool = false
     ) -> some View {
         Section {
             if isExpanded.wrappedValue {
@@ -339,7 +346,7 @@ struct TodayView: View {
                         .bouncy(duration: 0.5).delay(Double(index) * 0.04),
                         value: hasAppeared
                     )
-                    .listRowBackground(Color.clear)
+                    .listRowBackground(tintBackground ? Tokens.Color.amber.opacity(0.04) : Color.clear)
                     .listRowSeparator(.hidden)
                     .listRowInsets(EdgeInsets(top: 4, leading: Tokens.Space.lg, bottom: 4, trailing: Tokens.Space.lg))
                 }
@@ -357,6 +364,11 @@ struct TodayView: View {
                         .foregroundStyle(Tokens.Color.text3)
                         .rotationEffect(.degrees(isExpanded.wrappedValue ? 90 : 0))
                         .animation(.smooth(duration: 0.25), value: isExpanded.wrappedValue)
+                    if let headerIcon {
+                        Image(systemName: headerIcon)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(accent)
+                    }
                     GroupHeader(title: title, count: count, accent: accent)
                         .textCase(nil)
                     Spacer(minLength: 0)
@@ -365,6 +377,7 @@ struct TodayView: View {
             }
             .buttonStyle(.plain)
             .padding(.bottom, 4)
+            .listRowBackground(tintBackground ? Tokens.Color.amber.opacity(0.04) : Color.clear)
         }
         .listSectionSeparator(.hidden)
     }
@@ -469,6 +482,20 @@ struct TodayView: View {
         .padding(.top, Tokens.Space.xxl)
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
+    }
+
+    /// Build 30: bumps the saved threshold from the old 3/5 default to
+    /// 10 once. Users who explicitly picked a low number stay where they
+    /// chose; the migration only touches values that look like the old
+    /// default. Marks `migratedCarriedThresholdBuild30` so we never run
+    /// it twice on the same device.
+    private func applyCarriedThresholdMigrationIfNeeded() {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: PrefsKey.migratedCarriedThresholdBuild30) else { return }
+        if autoCollapseCarriedThreshold <= 5 {
+            autoCollapseCarriedThreshold = 10
+        }
+        defaults.set(true, forKey: PrefsKey.migratedCarriedThresholdBuild30)
     }
 
     // MARK: Derived task buckets

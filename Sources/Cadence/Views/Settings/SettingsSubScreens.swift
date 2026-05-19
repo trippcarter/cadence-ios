@@ -805,7 +805,12 @@ struct VoiceSiriSubscreen: View {
 struct TodayLayoutSubscreen: View {
     @AppStorage(PrefsKey.showComingUpSection)          private var showComingUp: Bool = true
     @AppStorage(PrefsKey.comingUpWindowDays)           private var comingUpDays: Int = 7
-    @AppStorage(PrefsKey.autoCollapseCarriedThreshold) private var autoCollapseThreshold: Int = 3
+    @AppStorage(PrefsKey.autoCollapseCarriedThreshold) private var autoCollapseThreshold: Int = 10
+
+    /// Sentinel for "Never auto-collapse." Picked Int.max so the
+    /// `count <= threshold` check in TodayView is always true when the
+    /// user picks Never.
+    private static let neverCollapseTag = Int.max
 
     var body: some View {
         SubscreenScaffold(title: "Today layout") {
@@ -835,12 +840,13 @@ struct TodayLayoutSubscreen: View {
                 }
                 Divider().background(Tokens.Color.borderSoft)
                 HStack {
-                    SubscreenRowLabel(icon: "rectangle.compress.vertical", text: "Collapse carried over above")
+                    SubscreenRowLabel(icon: "rectangle.compress.vertical", text: "Auto-collapse carried over above")
                     Spacer()
                     Picker("", selection: $autoCollapseThreshold) {
                         Text("3").tag(3)
                         Text("5").tag(5)
                         Text("10").tag(10)
+                        Text("Never").tag(Self.neverCollapseTag)
                     }
                     .labelsHidden()
                     .tint(Tokens.Color.accent2)
@@ -848,6 +854,45 @@ struct TodayLayoutSubscreen: View {
                 .padding(.horizontal, Tokens.Space.lg)
                 .padding(.vertical, Tokens.Space.md)
             }
+
+            Text("Build 30 default order: Pinned → Carried over → Today → Coming up. Carried over sits above Today and is expanded unless you have more than the threshold above. Drag-reorder of these sections is on the Build 31 roadmap.")
+                .font(Tokens.Font.caption)
+                .foregroundStyle(Tokens.Color.text3)
+                .padding(.horizontal, Tokens.Space.xl)
+                .padding(.top, Tokens.Space.xs)
+
+            SubscreenCard {
+                Button {
+                    Haptics.tap()
+                    resetToDefaults()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "arrow.uturn.backward.circle.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Tokens.Color.accent2)
+                            .frame(width: 18)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Reset to defaults")
+                                .font(Tokens.Font.bodyEmphasis)
+                                .foregroundStyle(Tokens.Color.text)
+                            Text("Show Coming up · 7-day window · auto-collapse above 10.")
+                                .font(Tokens.Font.caption)
+                                .foregroundStyle(Tokens.Color.text3)
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, Tokens.Space.lg)
+                    .padding(.vertical, Tokens.Space.md)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
         }
+    }
+
+    private func resetToDefaults() {
+        showComingUp = true
+        comingUpDays = 7
+        autoCollapseThreshold = 10
     }
 }

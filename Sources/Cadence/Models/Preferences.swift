@@ -110,6 +110,13 @@ enum PrefsKey {
     /// level) still fire during quiet hours.
     static let quietHoursAllowTimeSensitive = "quietHoursAllowTimeSensitive"
 
+    // One-shot migration flags (Build 30)
+    /// Marks that the Build 30 carried-over threshold rebalance has been
+    /// applied to this device. Users on the previous 3/5 default get
+    /// bumped to 10 once so the new expanded-by-default behavior takes
+    /// effect without them having to re-enter Settings.
+    static let migratedCarriedThresholdBuild30 = "migratedCarriedThresholdBuild30"
+
     // Profile avatar color (Build 28)
     /// Picked gradient identifier for the user's avatar circle. Per-user
     /// (keyed via UserScopedPrefs). Falls back to violet→indigo default
