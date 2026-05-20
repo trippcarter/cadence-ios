@@ -202,7 +202,12 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: net.mcinnis.cadence.watchkitapp
         TARGETED_DEVICE_FAMILY: "4"
         GENERATE_INFOPLIST_FILE: NO
-        SKIP_INSTALL: NO
+        # Build 30 fix: extensions + Watch app must be SKIP_INSTALL=YES so
+        # they're only embedded inside Cadence.app, not also dropped at
+        # the archive's top-level Applications/ alongside the iOS app.
+        # Without this, IDEDistribution sees two top-level apps and fails
+        # to enumerate distribution methods → exportArchive errors out.
+        SKIP_INSTALL: YES
         CODE_SIGN_ENTITLEMENTS: Sources/CadenceWatch/CadenceWatch.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     info:
@@ -251,7 +256,7 @@ targets:
         PRODUCT_NAME: CadenceCapture
         PRODUCT_BUNDLE_IDENTIFIER: net.mcinnis.cadence.share
         INFOPLIST_KEY_CFBundleDisplayName: Save to Cadence
-        SKIP_INSTALL: NO
+        SKIP_INSTALL: YES
         CODE_SIGN_ENTITLEMENTS: Sources/CadenceCapture/CadenceCapture.entitlements
     info:
       path: Sources/CadenceCapture/Info.plist
@@ -297,7 +302,7 @@ targets:
         PRODUCT_NAME: CadenceWidget
         PRODUCT_BUNDLE_IDENTIFIER: net.mcinnis.cadence.widget
         INFOPLIST_KEY_CFBundleDisplayName: Cadence
-        SKIP_INSTALL: NO
+        SKIP_INSTALL: YES
         CODE_SIGN_ENTITLEMENTS: Sources/CadenceWidget/CadenceWidget.entitlements
     info:
       path: Sources/CadenceWidget/Info.plist
