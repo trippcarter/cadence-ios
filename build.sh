@@ -58,6 +58,12 @@ cmd_archive() {
   echo "✓ Archive at $ARCHIVE_PATH"
 }
 
+build_number() {
+  # Read CURRENT_PROJECT_VERSION from project.yml so the renamed IPAs
+  # match whichever build we just archived.
+  awk -F'"' '/CURRENT_PROJECT_VERSION:/ { print $2; exit }' "$REPO_ROOT/project.yml"
+}
+
 cmd_appstore() {
   rm -rf "$APPSTORE_OUT"
   echo "→ Exporting App Store IPA…"
@@ -67,9 +73,13 @@ cmd_appstore() {
     -exportPath "$APPSTORE_OUT" \
     -allowProvisioningUpdates \
     -quiet
-  echo "✓ App Store IPA at $APPSTORE_OUT/Cadence.ipa"
+  local build
+  build="$(build_number)"
+  local final="$APPSTORE_OUT/Cadence-${build}-AppStore.ipa"
+  mv "$APPSTORE_OUT/Cadence.ipa" "$final"
+  echo "✓ App Store IPA at $final"
   echo "  → drop this one in Transporter, or run:"
-  echo "    xcrun altool --upload-app --type ios --file $APPSTORE_OUT/Cadence.ipa \\"
+  echo "    xcrun altool --upload-app --type ios --file $final \\"
   echo "      --apiKey <KEY_ID> --apiIssuer <ISSUER_ID>"
 }
 
@@ -82,7 +92,11 @@ cmd_development() {
     -exportPath "$DEV_OUT" \
     -allowProvisioningUpdates \
     -quiet
-  echo "✓ Development IPA at $DEV_OUT/Cadence.ipa"
+  local build
+  build="$(build_number)"
+  local final="$DEV_OUT/Cadence-${build}-Development.ipa"
+  mv "$DEV_OUT/Cadence.ipa" "$final"
+  echo "✓ Development IPA at $final"
 }
 
 cmd_install() {
@@ -101,11 +115,13 @@ cmd_all() {
   cmd_appstore
   cmd_development
   cmd_install
+  local build
+  build="$(build_number)"
   echo ""
   echo "═══════════════════════════════════════"
-  echo "✓ Build complete"
+  echo "✓ Build $build complete"
   echo "  Direct install:   ./build.sh install   (already done)"
-  echo "  Transporter:      $APPSTORE_OUT/Cadence.ipa"
+  echo "  Transporter:      $APPSTORE_OUT/Cadence-${build}-AppStore.ipa"
   echo "═══════════════════════════════════════"
 }
 
