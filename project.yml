@@ -225,6 +225,21 @@ targets:
         WKRunsIndependentlyOfCompanionApp: false
         UIBackgroundModes:
           - remote-notification
+        # Belt-and-suspenders for App Store validation. The asset
+        # catalog (Assets.xcassets/AppIcon.appiconset with watch-idiom
+        # entries) is the actual source of icons; CFBundleIcons here
+        # makes Apple's validator + altool happy by explicitly naming
+        # AppIcon as the primary icon.
+        CFBundleIcons:
+          CFBundlePrimaryIcon:
+            CFBundleIconFiles:
+              - AppIcon
+            CFBundleIconName: AppIcon
+        CFBundleIcons~ipad:
+          CFBundlePrimaryIcon:
+            CFBundleIconFiles:
+              - AppIcon
+            CFBundleIconName: AppIcon
 
   CadenceCapture:
     # Build 22: iOS Share Sheet extension. Lets the user select text /

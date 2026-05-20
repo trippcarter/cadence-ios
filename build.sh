@@ -3,7 +3,7 @@
 #
 # Outputs:
 #   build/ipa-dev/Cadence-Dev.ipa             → direct install (devicectl)
-#   build/ipa-testflight/Cadence-TestFlight.ipa → Transporter / TestFlight
+#   build/ipa-testflight/Cadence-current.ipa → Transporter / TestFlight
 #
 # Usage:
 #   ./build.sh archive       # archive only
@@ -79,10 +79,10 @@ cmd_testflight() {
     -exportPath "$TF_OUT" \
     -allowProvisioningUpdates \
     -quiet
-  mv "$TF_OUT/Cadence.ipa" "$TF_OUT/Cadence-TestFlight.ipa"
+  mv "$TF_OUT/Cadence.ipa" "$TF_OUT/Cadence-current.ipa"
   local size
-  size=$(stat -f%z "$TF_OUT/Cadence-TestFlight.ipa")
-  echo "✓ Cadence-TestFlight.ipa exported to $TF_OUT/ ($(human_size $size))"
+  size=$(stat -f%z "$TF_OUT/Cadence-current.ipa")
+  echo "✓ Cadence-current.ipa exported to $TF_OUT/ ($(human_size $size))"
 }
 
 cmd_dev() {
@@ -115,7 +115,7 @@ cmd_install() {
 }
 
 cmd_validate() {
-  local ipa="$TF_OUT/Cadence-TestFlight.ipa"
+  local ipa="$TF_OUT/Cadence-current.ipa"
   if [[ ! -f "$ipa" ]]; then
     echo "✗ No TestFlight IPA found at ${ipa} — run ./build.sh testflight first." >&2
     exit 1
@@ -192,13 +192,39 @@ local_validate() {
   echo "  ✓ Build number in IPA: $build_in_ipa"
 
   # Watch app embedded, not duplicated at top level.
-  if [[ -d "$tmp/Payload/Cadence.app/Watch/CadenceWatchApp.app" ]]; then
+  local watch_app="$tmp/Payload/Cadence.app/Watch/CadenceWatchApp.app"
+  if [[ -d "$watch_app" ]]; then
     echo "  ✓ Watch app embedded inside Cadence.app/Watch/"
   fi
   if [[ -d "$tmp/Payload/CadenceWatchApp.app" ]]; then
     echo "  ✗ Watch app ALSO at IPA top level — would fail validation" >&2
     rm -rf "$tmp"
     exit 2
+  fi
+
+  # Watch icons compiled into Assets.car. This is the bug that bit us
+  # in iterations 3 and 4: Contents.json declared the icon as
+  # idiom=universal, so the watchOS asset compiler dropped it silently
+  # and the IPA shipped to App Store with zero icons → 409 rejection.
+  if [[ -d "$watch_app" ]]; then
+    local watch_icon_count
+    watch_icon_count=$(/usr/bin/assetutil --info "$watch_app/Assets.car" 2>/dev/null \
+      | grep -c '"Idiom" : "watch"' || true)
+    if [[ "$watch_icon_count" -lt 4 ]]; then
+      echo "  ✗ Watch Assets.car has only $watch_icon_count watch-idiom entries — App Store will reject with 'Missing Icons'" >&2
+      rm -rf "$tmp"
+      exit 2
+    fi
+    echo "  ✓ Watch Assets.car has $watch_icon_count watch-idiom icon entries"
+    # Belt-and-suspenders: CFBundleIcons in Watch Info.plist
+    local watch_icons
+    watch_icons=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIcons:CFBundlePrimaryIcon:CFBundleIconName" \
+      "$watch_app/Info.plist" 2>/dev/null || echo "")
+    if [[ "$watch_icons" == "AppIcon" ]]; then
+      echo "  ✓ Watch Info.plist CFBundleIcons → AppIcon"
+    else
+      echo "  ⚠ Watch Info.plist missing CFBundleIcons (asset catalog still drives icons)" >&2
+    fi
   fi
 
   rm -rf "$tmp"
@@ -220,9 +246,9 @@ cmd_all() {
   echo "═══════════════════════════════════════════════════════════"
   echo "✓ Build $build archived"
   echo "✓ Cadence-Dev.ipa exported to $DEV_OUT/ ($(human_size "$(stat -f%z "$DEV_OUT/Cadence-Dev.ipa")"))"
-  echo "✓ Cadence-TestFlight.ipa exported to $TF_OUT/ ($(human_size "$(stat -f%z "$TF_OUT/Cadence-TestFlight.ipa")"))"
+  echo "✓ Cadence-current.ipa exported to $TF_OUT/ ($(human_size "$(stat -f%z "$TF_OUT/Cadence-current.ipa")"))"
   echo "✓ Direct install of Cadence-Dev.ipa to iPhone (Tripp's Current iPhone)"
-  echo "→ To upload to TestFlight: drag $TF_OUT/Cadence-TestFlight.ipa into Transporter"
+  echo "→ To upload to TestFlight: drag $TF_OUT/Cadence-current.ipa into Transporter"
   echo "═══════════════════════════════════════════════════════════"
 }
 
