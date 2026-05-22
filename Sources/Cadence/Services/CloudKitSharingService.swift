@@ -2,6 +2,12 @@ import Foundation
 import SwiftUI
 import CloudKit
 import SwiftData
+import os.log
+
+/// Build 31: shared logger for the sharing subsystem. Filter Console.app
+/// by subsystem `net.mcinnis.cadence` category `SHARING` — every line
+/// is also tagged `[Build 31][Sharing]` in the message text.
+let sharingLog = OSLog(subsystem: "net.mcinnis.cadence", category: "SHARING")
 
 /// Owns the `CKShare` lifecycle for per-list sharing.
 ///
@@ -56,9 +62,24 @@ final class CloudKitSharingService: ObservableObject {
     /// Default participant role: read/write (Editor) — caller can adjust on
     /// the system share sheet before sending.
     func makeShare(for list: TaskList, ownerName: String) async throws -> (CKShare, CKContainer) {
+        os_log("[Build 31][Sharing] makeShare start — list=%{public}@", log: sharingLog, type: .info, list.name)
+
+        // Build 31: verify the user is actually signed into iCloud before
+        // we attempt any CloudKit write. A signed-out account is the most
+        // common cause of share creation failing outright.
+        let accountStatus = try await container.accountStatus()
+        os_log("[Build 31][Sharing] CKAccountStatus = %{public}d", log: sharingLog, type: .info, accountStatus.rawValue)
+        guard accountStatus == .available else {
+            os_log("[Build 31][Sharing] aborting — iCloud account not available", log: sharingLog, type: .error)
+            throw ShareError.iCloudUnavailable
+        }
+
         let zoneID = try await ensureSharedZone(for: list)
+        os_log("[Build 31][Sharing] zone ready — %{public}@", log: sharingLog, type: .info, zoneID.zoneName)
 
         if let existing = await fetchShare(in: zoneID, database: privateDB) {
+            os_log("[Build 31][Sharing] reusing existing share — url=%{public}@",
+                   log: sharingLog, type: .info, existing.url?.absoluteString ?? "<nil>")
             return (existing, container)
         }
 
@@ -81,10 +102,18 @@ final class CloudKitSharingService: ObservableObject {
         // First commit: list root + share itself.
         let firstBatch = try await privateDB.modifyRecords(saving: [rootRecord, share], deleting: [])
         for (_, result) in firstBatch.saveResults {
-            if case .failure(let err) = result { throw err }
+            if case .failure(let err) = result {
+                os_log("[Build 31][Sharing] root/share save FAILED: %{public}@",
+                       log: sharingLog, type: .error, err.localizedDescription)
+                throw err
+            }
         }
 
         list.shareRecordName = share.recordID.recordName
+        os_log("[Build 31][Sharing] share created — url=%{public}@ recordName=%{public}@",
+               log: sharingLog, type: .info,
+               share.url?.absoluteString ?? "<nil — will populate after sync>",
+               share.recordID.recordName)
 
         // Second commit: mirror every existing TaskItem into the zone so
         // recipients see content as soon as they accept the share.
@@ -130,7 +159,31 @@ final class CloudKitSharingService: ObservableObject {
     // MARK: Accept incoming share
 
     func accept(shareMetadata: CKShare.Metadata) async throws -> CKShare {
-        try await container.accept(shareMetadata)
+        os_log("[Build 31][Sharing] accepting share — title=%{public}@",
+               log: sharingLog, type: .info,
+               (shareMetadata.share[CKShare.SystemFieldKey.title] as? String) ?? "<untitled>")
+        do {
+            let share = try await container.accept(shareMetadata)
+            os_log("[Build 31][Sharing] accept SUCCEEDED", log: sharingLog, type: .info)
+            return share
+        } catch {
+            os_log("[Build 31][Sharing] accept FAILED: %{public}@",
+                   log: sharingLog, type: .error, error.localizedDescription)
+            throw error
+        }
+    }
+
+    // MARK: Build 31 errors
+
+    enum ShareError: LocalizedError {
+        case iCloudUnavailable
+
+        var errorDescription: String? {
+            switch self {
+            case .iCloudUnavailable:
+                return "Sign into iCloud in Settings to share Spaces."
+            }
+        }
     }
 
     // MARK: Internals (zone setup + share lookup)

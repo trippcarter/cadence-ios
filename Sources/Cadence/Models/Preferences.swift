@@ -110,7 +110,15 @@ enum PrefsKey {
     /// level) still fire during quiet hours.
     static let quietHoursAllowTimeSensitive = "quietHoursAllowTimeSensitive"
 
-    // One-shot migration flags (Build 30)
+    // Calendar event reminders (Build 31)
+    /// When ON, every Google Calendar event synced into Cadence gets a
+    /// local notification at the default reminder offset. Default ON.
+    static let calendarEventRemindersEnabled = "calendarEventRemindersEnabled"
+
+    // One-shot migration flags (Build 30 / 31)
+    /// Build 31: bumps the default reminder offset from "None" to
+    /// "10 min before" for users who never changed it. Runs once.
+    static let migratedReminderDefaultBuild31 = "migratedReminderDefaultBuild31"
     /// Marks that the Build 30 carried-over threshold rebalance has been
     /// applied to this device. Users on the previous 3/5 default get
     /// bumped to 10 once so the new expanded-by-default behavior takes
@@ -144,12 +152,15 @@ enum ListSortPreference: String, CaseIterable, Identifiable {
     }
 }
 
-/// User-pickable reminder offsets for the new "Default reminder offset"
-/// preference. Encoded as seconds; -1 sentinel = no default. Build 28.
+/// User-pickable reminder offsets for the "Default reminder time"
+/// preference. Encoded as seconds; -1 sentinel = no default. Build 28,
+/// extended Build 31 with 10- and 15-minute options.
 enum ReminderOffsetPreset: TimeInterval, CaseIterable, Identifiable {
     case none      = -1
     case atDue     = 0
     case fiveMin   = -300
+    case tenMin    = -600
+    case fifteenMin = -900
     case thirtyMin = -1800
     case oneHour   = -3600
     case oneDay    = -86400
@@ -158,13 +169,33 @@ enum ReminderOffsetPreset: TimeInterval, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .none:      return "None"
-        case .atDue:     return "At due time"
-        case .fiveMin:   return "5 min before"
-        case .thirtyMin: return "30 min before"
-        case .oneHour:   return "1 hr before"
-        case .oneDay:    return "1 day before"
+        case .none:       return "None"
+        case .atDue:      return "At time"
+        case .fiveMin:    return "5 min before"
+        case .tenMin:     return "10 min before"
+        case .fifteenMin: return "15 min before"
+        case .thirtyMin:  return "30 min before"
+        case .oneHour:    return "1 hr before"
+        case .oneDay:     return "1 day before"
         }
+    }
+
+    /// Short label for the inline reminder chip in AddTaskSheet.
+    var chipLabel: String {
+        switch self {
+        case .none:       return "No reminder"
+        case .atDue:      return "At time"
+        case .fiveMin:    return "5 min before"
+        case .tenMin:     return "10 min before"
+        case .fifteenMin: return "15 min before"
+        case .thirtyMin:  return "30 min before"
+        case .oneHour:    return "1 hr before"
+        case .oneDay:     return "1 day before"
+        }
+    }
+
+    static func resolve(_ rawValue: Double) -> ReminderOffsetPreset {
+        ReminderOffsetPreset(rawValue: rawValue) ?? .tenMin
     }
 }
 

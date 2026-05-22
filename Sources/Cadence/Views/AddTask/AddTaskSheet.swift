@@ -25,6 +25,13 @@ struct AddTaskSheet: View {
     @State private var hasDueDate: Bool = true
     @State private var dueDate: Date = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: .now) ?? .now
     @State private var hasTime: Bool = false
+    /// Build 31: reminder offset for this task. Seeded from the user's
+    /// "Default reminder time" preference; the chip below the time
+    /// picker lets the user override it per-task.
+    @State private var reminderPreset: ReminderOffsetPreset = .resolve(
+        UserDefaults.standard.object(forKey: PrefsKey.defaultReminderOffset) as? Double
+            ?? ReminderOffsetPreset.tenMin.rawValue
+    )
     @State private var selectedListID: PersistentIdentifier?
     @State private var priority: Priority = .none
     /// Inline assignment (Build 16). nil = "Unassigned". Only meaningful
@@ -85,6 +92,37 @@ struct AddTaskSheet: View {
                                             .foregroundStyle(Tokens.Color.text)
                                     }
                                     .tint(Tokens.Color.accent)
+
+                                    // Build 31: reminder chip — only meaningful
+                                    // when the task has a specific time. Tap
+                                    // to change; seeded from the default pref.
+                                    if hasTime {
+                                        Divider().background(Tokens.Color.borderSoft)
+                                        Menu {
+                                            ForEach(ReminderOffsetPreset.allCases) { preset in
+                                                Button {
+                                                    reminderPreset = preset
+                                                } label: {
+                                                    Label(preset.displayName,
+                                                          systemImage: reminderPreset == preset ? "checkmark" : "")
+                                                }
+                                            }
+                                        } label: {
+                                            HStack(spacing: 6) {
+                                                Image(systemName: "bell.fill")
+                                                    .font(.system(size: 12, weight: .semibold))
+                                                    .foregroundStyle(Tokens.Color.accent2)
+                                                Text(reminderPreset.chipLabel)
+                                                    .font(Tokens.Font.bodyEmphasis)
+                                                    .foregroundStyle(Tokens.Color.text)
+                                                Spacer()
+                                                Image(systemName: "chevron.up.chevron.down")
+                                                    .font(.system(size: 10, weight: .semibold))
+                                                    .foregroundStyle(Tokens.Color.text3)
+                                            }
+                                            .contentShape(Rectangle())
+                                        }
+                                    }
                                 }
                                 .padding(Tokens.Space.lg)
                                 .background(Tokens.Color.surface)
@@ -420,12 +458,23 @@ struct AddTaskSheet: View {
             ? titleInput.trimmingCharacters(in: .whitespacesAndNewlines)
             : parsedTitle.trimmingCharacters(in: .whitespacesAndNewlines)
 
+        // Build 31: a timed task gets the chosen reminder offset baked in.
+        // Untimed tasks (date only, or no date) get no reminder — there's
+        // no precise moment to fire against.
+        let reminderOffsets: [TimeInterval]
+        if hasDueDate, hasTime, reminderPreset != .none {
+            reminderOffsets = [reminderPreset.rawValue]
+        } else {
+            reminderOffsets = []
+        }
+
         let task = TaskItem(
             title: finalTitle,
             dueDate: hasDueDate ? dueDate : nil,
             allDay: hasDueDate ? !hasTime : false,
             priority: priority,
             tags: parsedResult.tags,
+            reminderOffsets: reminderOffsets,
             list: list,
             isTimeBlocked: shouldMirror,
             mirrorCalendarId: shouldMirror ? defaultCalID : nil
@@ -443,6 +492,11 @@ struct AddTaskSheet: View {
         ActivityLogger.record(.created, for: task, in: modelContext)
         try? modelContext.save()
         Haptics.success()
+        // Build 31: schedule the local reminder for the new task. No-op
+        // when reminderOffsets is empty (untimed task / "None" picked).
+        if !task.reminderOffsets.isEmpty {
+            Task { await NotificationManager.shared.scheduleReminders(for: task) }
+        }
         Task {
             await GoogleCalendarService.shared.syncTaskToCalendar(task)
         }

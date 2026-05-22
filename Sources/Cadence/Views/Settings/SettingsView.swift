@@ -30,6 +30,7 @@ struct SettingsView: View {
     @AppStorage(PrefsKey.defaultNewTaskList)    private var defaultNewTaskList: String = "inbox"
     @AppStorage(PrefsKey.showCompletedInToday)  private var showCompletedInToday: Bool = true
     @AppStorage(PrefsKey.showCalendarEvents)    private var showCalendarEvents: Bool = true
+    @AppStorage(PrefsKey.calendarEventRemindersEnabled) private var calendarEventReminders: Bool = true
 
     // Local state
     @State private var testFeedback: String?
@@ -64,6 +65,7 @@ struct SettingsView: View {
                         productivitySection
                         preferencesSection
                         helpSection
+                        developerSection
                         aboutSection
 
                         footer
@@ -78,6 +80,7 @@ struct SettingsView: View {
                 Task { await notifications.refreshAuthorizationStatus() }
                 hydrateFirstDayOfWeekIfNeeded()
                 hydrateTimeFormatIfNeeded()
+                hydrateReminderDefaultIfNeeded()
                 crashLogCount = MetricKitObserver.listLogs().count
             }
             .onChange(of: notifsEnabled) { _, newValue in
@@ -457,9 +460,9 @@ struct SettingsView: View {
             .padding(.vertical, Tokens.Space.md)
             Divider().background(Tokens.Color.borderSoft)
 
-            // Default reminder offset
+            // Default reminder time (Build 31 — default is now 10 min)
             HStack {
-                SubscreenRowLabel(icon: "bell.badge", text: "Default reminder offset")
+                SubscreenRowLabel(icon: "bell.badge", text: "Default reminder time")
                 Spacer()
                 Picker("", selection: $defaultReminderOffset) {
                     ForEach(ReminderOffsetPreset.allCases) { preset in
@@ -506,6 +509,22 @@ struct SettingsView: View {
                 SubscreenRowLabel(icon: "calendar.badge.exclamationmark", text: "Show calendar events")
                 Spacer()
                 Toggle("", isOn: $showCalendarEvents).labelsHidden().tint(Tokens.Color.accent)
+            }
+            .padding(.horizontal, Tokens.Space.lg)
+            .padding(.vertical, Tokens.Space.md)
+            Divider().background(Tokens.Color.borderSoft)
+
+            // Build 31: reminders for synced calendar events
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    SubscreenRowLabel(icon: "bell.and.waves.left.and.right", text: "Reminders for calendar events")
+                    Spacer()
+                    Toggle("", isOn: $calendarEventReminders).labelsHidden().tint(Tokens.Color.accent)
+                }
+                Text("Create local notifications for events from connected calendars, using the default reminder time above.")
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Tokens.Color.text3)
+                    .padding(.leading, 26)
             }
             .padding(.horizontal, Tokens.Space.lg)
             .padding(.vertical, Tokens.Space.md)
@@ -563,6 +582,22 @@ struct SettingsView: View {
     }
 
     // MARK: - Section: About
+
+    // MARK: - Section: Developer (Build 31)
+
+    private var developerSection: some View {
+        section(title: "Developer") {
+            chevronRow(icon: "bell.badge.waveform.fill", iconTint: Tokens.Color.accent,
+                       title: "Notification Diagnostics",
+                       subtitle: "Auth status, pending + delivered, 30-sec test.",
+                       destination: AnyView(NotificationDiagnosticsView()))
+            Divider().background(Tokens.Color.borderSoft)
+            chevronRow(icon: "person.2.badge.gearshape.fill", iconTint: Tokens.Color.teal,
+                       title: "Share Diagnostics",
+                       subtitle: "Test Space/list sharing end-to-end.",
+                       destination: AnyView(ShareDiagnosticsView()))
+        }
+    }
 
     private var aboutSection: some View {
         section(title: "About") {
@@ -707,6 +742,20 @@ struct SettingsView: View {
     }
 
     // MARK: - Hydration helpers
+
+    /// Build 31: the default reminder time used to be "None". This
+    /// build makes it "10 min before". Users who never changed it (or
+    /// were on the old None default) get bumped to 10 min once; anyone
+    /// who explicitly picked a value keeps it.
+    private func hydrateReminderDefaultIfNeeded() {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: PrefsKey.migratedReminderDefaultBuild31) else { return }
+        let current = defaults.object(forKey: PrefsKey.defaultReminderOffset) as? Double
+        if current == nil || current == ReminderOffsetPreset.none.rawValue {
+            defaultReminderOffset = ReminderOffsetPreset.tenMin.rawValue
+        }
+        defaults.set(true, forKey: PrefsKey.migratedReminderDefaultBuild31)
+    }
 
     private func hydrateFirstDayOfWeekIfNeeded() {
         if UserDefaults.standard.object(forKey: PrefsKey.firstDayOfWeek) == nil {

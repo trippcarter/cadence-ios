@@ -63,10 +63,19 @@ struct CadenceApp: App {
                     .preferredColorScheme(resolvedColorScheme)
                     .environmentObject(notifications)
                     .task {
-                        await notifications.refreshAuthorizationStatus()
+                        // Build 31: actually ask for notification permission
+                        // on launch. Previously the prompt only appeared if
+                        // the user wandered into Settings or added a reminder
+                        // by hand — so a fresh-installed phone silently got
+                        // zero notifications.
+                        await notifications.requestAuthorizationOnLaunch()
                         await cloudSync.bootstrap()
                         await GoogleCalendarService.shared.fetchAllEvents()
                         await SharedListMirror.shared.pullAllSharedZones()
+                        // Re-arm every reminder + the repeating brief and
+                        // review. iOS can drop pending requests across
+                        // build installs; this re-adds them.
+                        await notifications.rescheduleEverything(context: container.mainContext)
                     }
                     .environmentObject(cloudSync)
                     .environmentObject(authSession)
@@ -180,19 +189,21 @@ struct CadenceApp: App {
     /// publicly expose; we scan the values for the first match instead of
     /// hard-coding the private key string.
     private func handleCloudShareAcceptance(_ userActivity: NSUserActivity) {
+        NSLog("[Build 31][Sharing] continueUserActivity received — type=%@", userActivity.activityType)
         let metadata = userActivity.userInfo?.values.first { $0 is CKShare.Metadata } as? CKShare.Metadata
         guard let metadata else {
-            NSLog("[Cadence-Share] continueUserActivity without CKShare.Metadata")
+            NSLog("[Build 31][Sharing] continueUserActivity carried NO CKShare.Metadata — if this fires when tapping an invite link, CKSharingSupported may still be missing from Info.plist")
             return
         }
-        NSLog("[Cadence-Share] accepting share from %@", metadata.ownerIdentity.userRecordID?.recordName ?? "<unknown>")
+        NSLog("[Build 31][Sharing] accepting share from %@", metadata.ownerIdentity.userRecordID?.recordName ?? "<unknown>")
         Task {
             do {
                 let share = try await CloudKitSharingService.shared.accept(shareMetadata: metadata)
-                NSLog("[Cadence-Share] share accepted; mirroring records into SwiftData")
+                NSLog("[Build 31][Sharing] share accepted; mirroring records into SwiftData")
                 await SharedListMirror.shared.handleShareAccepted(share, metadata: metadata)
+                NSLog("[Build 31][Sharing] mirror complete — shared list should now appear in Lists")
             } catch {
-                NSLog("[Cadence-Share] accept failed: %@", error.localizedDescription)
+                NSLog("[Build 31][Sharing] accept failed: %@", error.localizedDescription)
             }
         }
     }

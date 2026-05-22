@@ -19,7 +19,7 @@ settings:
     SWIFT_STRICT_CONCURRENCY: minimal
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     MARKETING_VERSION: "1.0.0"
-    CURRENT_PROJECT_VERSION: "30"
+    CURRENT_PROJECT_VERSION: "31"
     GENERATE_INFOPLIST_FILE: YES
     INFOPLIST_KEY_CFBundleDisplayName: Cadence
     SWIFT_TREAT_WARNINGS_AS_ERRORS: NO
@@ -80,6 +80,12 @@ targets:
         # Phase 7: we only use OS-provided crypto, so we qualify for the
         # export-compliance exemption (avoids a Yes/No prompt on every upload).
         ITSAppUsesNonExemptEncryption: false
+        # Build 31 CRITICAL FIX: without this key iOS will not hand a
+        # CKShare.Metadata to the app when a recipient taps an iCloud
+        # share link — share acceptance silently fails. This was the
+        # root cause of "shared Spaces not working" on the recipient
+        # side. Required for any CloudKit sharing to function.
+        CKSharingSupported: true
         # Build 22: imported tasks from Apple Reminders need read access.
         # Description shown in the iOS permission dialog.
         NSRemindersFullAccessUsageDescription: Cadence imports your existing Apple Reminders lists so you don't have to retype them.

@@ -2,6 +2,12 @@ import Foundation
 import SwiftUI
 import SwiftData
 import UserNotifications
+import os.log
+
+/// Build 31: shared logger for the notification subsystem. Filter
+/// Console.app by subsystem `net.mcinnis.cadence` category `NOTIF` —
+/// every line is also tagged `[Build 31]` in the message text.
+let notifLog = OSLog(subsystem: "net.mcinnis.cadence", category: "NOTIF")
 
 /// Single owner of all local-notification scheduling.
 ///
@@ -55,16 +61,39 @@ final class NotificationManager: NSObject, ObservableObject {
         switch authorizationStatus {
         case .notDetermined:
             do {
+                os_log("[Build 31] requesting notification authorization (status was notDetermined)",
+                       log: notifLog, type: .info)
                 let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
                 await refreshAuthorizationStatus()
+                os_log("[Build 31] authorization request returned granted=%{public}@ → status=%{public}@",
+                       log: notifLog, type: .info,
+                       granted ? "true" : "false", String(describing: authorizationStatus.rawValue))
                 return granted
             } catch {
+                os_log("[Build 31] authorization request threw: %{public}@",
+                       log: notifLog, type: .error, error.localizedDescription)
                 return false
             }
         case .authorized, .provisional, .ephemeral:
             return true
         default:
+            os_log("[Build 31] authorization unavailable — status=%{public}d (denied?)",
+                   log: notifLog, type: .error, authorizationStatus.rawValue)
             return false
+        }
+    }
+
+    /// Build 31: called once on every app launch from CadenceApp. If the
+    /// user has never been asked (fresh install / new device), this fires
+    /// the system permission prompt — previously that only happened when
+    /// the user happened to open Settings or add a reminder manually,
+    /// which is why a fresh-installed phone got zero notifications.
+    func requestAuthorizationOnLaunch() async {
+        await refreshAuthorizationStatus()
+        os_log("[Build 31] launch auth check — status=%{public}d",
+               log: notifLog, type: .info, authorizationStatus.rawValue)
+        if authorizationStatus == .notDetermined {
+            await ensureAuthorization()
         }
     }
 
@@ -167,7 +196,15 @@ final class NotificationManager: NSObject, ObservableObject {
 
             let id = identifier(forTaskID: task.id, offset: offset)
             let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
-            try? await center.add(request)
+            do {
+                try await center.add(request)
+                os_log("[Build 31] scheduled task reminder '%{public}@' for %{public}@ (offset %{public}ds)",
+                       log: notifLog, type: .info,
+                       task.title, fireDate.description, Int(offset))
+            } catch {
+                os_log("[Build 31] FAILED to add task reminder '%{public}@': %{public}@",
+                       log: notifLog, type: .error, task.title, error.localizedDescription)
+            }
         }
     }
 
@@ -232,7 +269,14 @@ final class NotificationManager: NSObject, ObservableObject {
         let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
 
         let request = UNNotificationRequest(identifier: "daily-review", content: content, trigger: trigger)
-        try? await center.add(request)
+        do {
+            try await center.add(request)
+            os_log("[Build 31] scheduled daily review (repeating) at %{public}02d:%{public}02d",
+                   log: notifLog, type: .info, hour, minute)
+        } catch {
+            os_log("[Build 31] FAILED to add daily review: %{public}@",
+                   log: notifLog, type: .error, error.localizedDescription)
+        }
     }
 
     private func schedule(briefWithContext context: ModelContext, requestIfNeeded: Bool) async {
@@ -261,7 +305,14 @@ final class NotificationManager: NSObject, ObservableObject {
         let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
 
         let request = UNNotificationRequest(identifier: "daily-brief", content: content, trigger: trigger)
-        try? await center.add(request)
+        do {
+            try await center.add(request)
+            os_log("[Build 31] scheduled daily brief (repeating) at %{public}02d:%{public}02d",
+                   log: notifLog, type: .info, hour, minute)
+        } catch {
+            os_log("[Build 31] FAILED to add daily brief: %{public}@",
+                   log: notifLog, type: .error, error.localizedDescription)
+        }
     }
 
     private func computeBriefBody(context: ModelContext) -> String {
@@ -280,27 +331,224 @@ final class NotificationManager: NSObject, ObservableObject {
         return "You have \(todayOpen) \(taskWord) today and 0 events."
     }
 
+    // MARK: Build 31 — calendar event reminders
+
+    /// Re-syncs local notifications for every cached Google Calendar
+    /// event. Called after each `GoogleCalendarService.fetchAllEvents()`.
+    ///
+    /// Strategy: cancel all `event.*` reminders, then re-schedule for
+    /// every upcoming timed event using the user's default reminder
+    /// offset. Re-syncing the whole set each fetch means events that
+    /// were deleted or fell out of the window automatically lose their
+    /// reminders — no per-event bookkeeping needed.
+    func syncEventReminders(context: ModelContext) async {
+        // Always clear stale event reminders first.
+        let pending = await center.pendingNotificationRequests()
+        let staleEventIDs = pending.map(\.identifier).filter { $0.hasPrefix("event.") }
+        center.removePendingNotificationRequests(withIdentifiers: staleEventIDs)
+
+        guard masterEnabled else { return }
+
+        // The toggle defaults ON when never set.
+        let remindersOn: Bool = {
+            if UserDefaults.standard.object(forKey: PrefsKey.calendarEventRemindersEnabled) == nil {
+                return true
+            }
+            return UserDefaults.standard.bool(forKey: PrefsKey.calendarEventRemindersEnabled)
+        }()
+        guard remindersOn else {
+            os_log("[Build 31] event reminders disabled by preference", log: notifLog, type: .info)
+            return
+        }
+
+        await refreshAuthorizationStatus()
+        guard isAuthorized else {
+            os_log("[Build 31] event reminders skipped — not authorized", log: notifLog, type: .info)
+            return
+        }
+
+        // Default offset (negative seconds before start). -1 sentinel = none.
+        let rawOffset = UserDefaults.standard.object(forKey: PrefsKey.defaultReminderOffset) as? Double
+            ?? ReminderOffsetPreset.tenMin.rawValue
+        guard rawOffset != ReminderOffsetPreset.none.rawValue else {
+            os_log("[Build 31] event reminders skipped — default offset is None", log: notifLog, type: .info)
+            return
+        }
+
+        let events = (try? context.fetch(FetchDescriptor<CachedEvent>())) ?? []
+        var scheduled = 0
+        for event in events where !event.isAllDay {
+            let fireDate = event.start.addingTimeInterval(rawOffset)
+            guard fireDate > .now else { continue }
+
+            let comps = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)
+            let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
+
+            let content = UNMutableNotificationContent()
+            content.title = event.title
+            let mins = Int(abs(rawOffset) / 60)
+            content.body = mins == 0 ? "Starting now" : "Starting in \(mins) min"
+            content.sound = .default
+            content.userInfo = ["kind": "event", "eventID": event.id]
+            if #available(iOS 15.0, *) {
+                content.interruptionLevel = .timeSensitive
+            }
+
+            let request = UNNotificationRequest(
+                identifier: "event.\(event.id).reminder.default",
+                content: content,
+                trigger: trigger
+            )
+            do {
+                try await center.add(request)
+                scheduled += 1
+            } catch {
+                os_log("[Build 31] FAILED to add event reminder '%{public}@': %{public}@",
+                       log: notifLog, type: .error, event.title, error.localizedDescription)
+            }
+        }
+        os_log("[Build 31] event reminders synced — %{public}d scheduled (offset %{public}ds)",
+               log: notifLog, type: .info, scheduled, Int(rawOffset))
+    }
+
     // MARK: Diagnostics
 
     /// Schedule a notification 5 seconds out — used by the "Send test" button
     /// in Settings to verify the pipeline works end-to-end.
     func sendTestInFiveSeconds() async -> Bool {
-        guard await ensureAuthorization() else { return false }
+        await sendTest(afterSeconds: 5)
+    }
+
+    /// Build 31: parameterized test notification. The Notification
+    /// Diagnostics screen uses the 30-second variant so the user has
+    /// time to lock the phone and confirm it fires on the Lock Screen.
+    @discardableResult
+    func sendTest(afterSeconds seconds: TimeInterval) async -> Bool {
+        guard await ensureAuthorization() else {
+            os_log("[Build 31] test notification blocked — not authorized", log: notifLog, type: .error)
+            return false
+        }
         let content = UNMutableNotificationContent()
         content.title = "Cadence test"
-        content.body = "If you can see this, notifications work."
+        content.body = "If you can see this, notifications work. (\(Int(seconds))s test)"
         content.sound = .default
-        content.userInfo = ["kind": "dailyBrief"]   // routes to Today on tap
-
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
+        content.userInfo = ["kind": "dailyBrief"]
+        if #available(iOS 15.0, *) {
+            content.interruptionLevel = .timeSensitive
+        }
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: seconds, repeats: false)
         let request = UNNotificationRequest(identifier: "test.\(UUID().uuidString)", content: content, trigger: trigger)
         do {
             try await center.add(request)
+            os_log("[Build 31] test notification scheduled — fires in %{public}ds", log: notifLog, type: .info, Int(seconds))
             return true
         } catch {
+            os_log("[Build 31] test notification add() failed: %{public}@", log: notifLog, type: .error, error.localizedDescription)
             return false
         }
     }
+
+    // MARK: Build 31 — full diagnostics snapshot
+
+    /// Gathers a complete picture of the notification subsystem for the
+    /// Settings → Developer → Notification Diagnostics screen, and dumps
+    /// it to os_log so it's also visible in Console.app.
+    func diagnosticsSnapshot() async -> NotificationDiagnosticsReport {
+        let settings = await center.notificationSettings()
+        let pending = await center.pendingNotificationRequests()
+        let delivered = await center.deliveredNotifications()
+
+        os_log("[Build 31] DIAG auth=%{public}d alert=%{public}d sound=%{public}d badge=%{public}d lockScreen=%{public}d notifCenter=%{public}d",
+               log: notifLog, type: .info,
+               settings.authorizationStatus.rawValue,
+               settings.alertSetting.rawValue,
+               settings.soundSetting.rawValue,
+               settings.badgeSetting.rawValue,
+               settings.lockScreenSetting.rawValue,
+               settings.notificationCenterSetting.rawValue)
+        os_log("[Build 31] DIAG pending=%{public}d delivered=%{public}d",
+               log: notifLog, type: .info, pending.count, delivered.count)
+        for req in pending {
+            os_log("[Build 31] DIAG pending id=%{public}@ next=%{public}@",
+                   log: notifLog, type: .info, req.identifier, Self.nextFireDate(req)?.description ?? "n/a")
+        }
+
+        return NotificationDiagnosticsReport(
+            authorizationStatus: settings.authorizationStatus,
+            alertSetting: settings.alertSetting,
+            soundSetting: settings.soundSetting,
+            badgeSetting: settings.badgeSetting,
+            lockScreenSetting: settings.lockScreenSetting,
+            notificationCenterSetting: settings.notificationCenterSetting,
+            pending: pending.map { req in
+                PendingNotificationInfo(
+                    identifier: req.identifier,
+                    body: req.content.body,
+                    triggerKind: Self.triggerDescription(req.trigger),
+                    nextFireDate: Self.nextFireDate(req)
+                )
+            },
+            delivered: delivered.map { note in
+                DeliveredNotificationInfo(
+                    identifier: note.request.identifier,
+                    body: note.request.content.body,
+                    deliveredAt: note.date
+                )
+            }
+        )
+    }
+
+    private static func triggerDescription(_ trigger: UNNotificationTrigger?) -> String {
+        switch trigger {
+        case let t as UNCalendarNotificationTrigger:
+            return t.repeats ? "Calendar (repeating)" : "Calendar (one-shot)"
+        case let t as UNTimeIntervalNotificationTrigger:
+            return t.repeats ? "Interval (repeating)" : "Interval (one-shot)"
+        case is UNPushNotificationTrigger:
+            return "Push"
+        default:
+            return "Unknown"
+        }
+    }
+
+    private static func nextFireDate(_ request: UNNotificationRequest) -> Date? {
+        switch request.trigger {
+        case let t as UNCalendarNotificationTrigger:
+            return t.nextTriggerDate()
+        case let t as UNTimeIntervalNotificationTrigger:
+            return t.nextTriggerDate()
+        default:
+            return nil
+        }
+    }
+}
+
+// MARK: - Build 31 diagnostics value types
+
+struct NotificationDiagnosticsReport {
+    let authorizationStatus: UNAuthorizationStatus
+    let alertSetting: UNNotificationSetting
+    let soundSetting: UNNotificationSetting
+    let badgeSetting: UNNotificationSetting
+    let lockScreenSetting: UNNotificationSetting
+    let notificationCenterSetting: UNNotificationSetting
+    let pending: [PendingNotificationInfo]
+    let delivered: [DeliveredNotificationInfo]
+}
+
+struct PendingNotificationInfo: Identifiable {
+    let identifier: String
+    let body: String
+    let triggerKind: String
+    let nextFireDate: Date?
+    var id: String { identifier }
+}
+
+struct DeliveredNotificationInfo: Identifiable {
+    let identifier: String
+    let body: String
+    let deliveredAt: Date
+    var id: String { identifier }
 }
 
 // MARK: - UNUserNotificationCenterDelegate
@@ -329,6 +577,9 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
             await MainActor.run { self.deepLinkRequestedTab = .today }
         } else if kind == "dailyReview" {
             await MainActor.run { self.deepLinkOpenReview = true }
+        } else if kind == "event" {
+            // Build 31: a calendar-event reminder tap opens the Calendar tab.
+            await MainActor.run { self.deepLinkRequestedTab = .week }
         }
     }
 }

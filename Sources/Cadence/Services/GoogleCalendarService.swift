@@ -289,6 +289,9 @@ final class GoogleCalendarService: ObservableObject {
         // newly-synced meeting shows up on the home screen / lock screen
         // without waiting for the next 15-minute cadence.
         WidgetReloader.reload(reason: "google events refreshed")
+        // Build 31: re-sync local notifications for synced events so the
+        // user gets a "starting in N min" reminder for every meeting.
+        await NotificationManager.shared.syncEventReminders(context: context)
     }
 
     func fetchEvents(for account: ConnectedAccount) async throws {
